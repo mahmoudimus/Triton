@@ -42,7 +42,7 @@ jobs:
         path: '${{ github.workspace }}/_vcpkg'
         fetch-depth: 0
 
-    - uses: lukka/get-cmake@latest
+    - uses: lukka/get-cmake@v3.31.6
       name: Get CMake
 
     - name: Set up Python 3.11
