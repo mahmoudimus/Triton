@@ -258,8 +258,8 @@ namespace triton {
             case ID_INS_CSET:      this->cset_s(inst);          break;
             case ID_INS_CSETM:     this->csetm_s(inst);         break;
             case ID_INS_CSINC:     this->csinc_s(inst);         break;
-            case ID_INS_CSNEG:     this->csneg_s(inst);         break;
             case ID_INS_CSINV:     this->csinv_s(inst);         break;
+            case ID_INS_CSNEG:     this->csneg_s(inst);         break;
             case ID_INS_EON:       this->eon_s(inst);           break;
             case ID_INS_EOR:       this->eor_s(inst);           break;
             case ID_INS_EXTR:      this->extr_s(inst);          break;
