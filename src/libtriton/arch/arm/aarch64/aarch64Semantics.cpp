@@ -1738,7 +1738,7 @@ namespace triton {
         void AArch64Semantics::csetm_s(triton::arch::Instruction& inst) {
           auto& dst = inst.operands[0];
 
-          /* Create symbolic operands */ 
+          /* Create symbolic operands */
           triton::uint512 temp = 1;
           auto op1 = this->astCtxt->bv((temp << dst.getBitSize()) - 1, dst.getBitSize());
           auto op2 = this->astCtxt->bv(0, dst.getBitSize());
