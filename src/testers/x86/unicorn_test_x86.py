@@ -964,6 +964,120 @@ CODE  = [
     (None, [],              b"\x48\xc7\xc0\x01\x00\x00\x00",              "mov rax, 1"),
     (None, [],              b"\x48\x11\xc3",                              "adc rax, rbx"),
 
+    (None, [],              b"\xb0\x01",                                  "mov al, 1"),
+    (None, [],              b"\xb3\x02",                                  "mov bl, 2"),
+    (None, [],              b"\x0f\xb0\xcb",                              "cmpxchg bl, cl"),
+
+    (None, [],              b"\xb0\x00",                                  "mov al, 0"),
+    (None, [],              b"\xb3\x00",                                  "mov bl, 0"),
+    (None, [],              b"\xb1\xff",                                  "mov cl, 0xff"),
+    (None, [],              b"\x0f\xb0\xcb",                              "cmpxchg bl, cl"),
+
+    (None, [],              b"\xb0\xff",                                  "mov al, 0xff"),
+    (None, [],              b"\xb3\x7f",                                  "mov bl, 0x7f"),
+    (None, [],              b"\xb1\x80",                                  "mov cl, 0x80"),
+    (None, [],              b"\x0f\xb0\xcb",                              "cmpxchg bl, cl"),
+
+    (None, [],              b"\xb0\x80",                                  "mov al, 0x80"),
+    (None, [],              b"\xb3\x80",                                  "mov bl, 0x80"),
+    (None, [],              b"\xb1\x01",                                  "mov cl, 0x01"),
+    (None, [],              b"\x0f\xb0\xcb",                              "cmpxchg bl, cl"),
+
+    (None, [],              b"\xb0\x12",                                  "mov al, 0x12"),
+    (None, [],              b"\xb3\x34",                                  "mov bl, 0x34"),
+    (None, [],              b"\xb1\x56",                                  "mov cl, 0x56"),
+    (None, [],              b"\x0f\xb0\xcb",                              "cmpxchg bl, cl"),
+
+    (None, [],              b"\xb0\x01",                                  "mov al, 1"),
+    (None, [],              b"\x40\xb6\x02",                              "mov sil, 2"),
+    (None, [],              b"\x40\xb7\x03",                              "mov dil, 3"),
+    (None, [],              b"\x40\x0f\xb0\xfe",                          "cmpxchg sil, dil"),
+
+    (None, [],              b"\xb0\xaa",                                  "mov al, 0xaa"),
+    (None, [],              b"\x41\xb0\xaa",                              "mov r8b, 0xaa"),
+    (None, [],              b"\x41\xb1\x55",                              "mov r9b, 0x55"),
+    (None, [],              b"\x45\x0f\xb0\xc8",                          "cmpxchg r8b, r9b"),
+
+    (None, [],              b"\xb0\x10",                                  "mov al, 0x10"),
+    (None, [],              b"\x41\xb2\x20",                              "mov r10b, 0x20"),
+    (None, [],              b"\x41\xb3\x30",                              "mov r11b, 0x30"),
+    (None, [],              b"\x45\x0f\xb0\xda",                          "cmpxchg r10b, r11b"),
+
+    (None, [],              b"\x66\xb8\x01\x00",                          "mov ax, 1"),
+    (None, [],              b"\x66\xbb\x02\x00",                          "mov bx, 2"),
+    (None, [],              b"\x66\xb9\x03\x00",                          "mov cx, 3"),
+    (None, [],              b"\x66\x0f\xb1\xcb",                          "cmpxchg bx, cx"),
+
+    (None, [],              b"\x66\xb8\x00\x00",                          "mov ax, 0"),
+    (None, [],              b"\x66\xbb\x00\x00",                          "mov bx, 0"),
+    (None, [],              b"\x66\xb9\xff\xff",                          "mov cx, 0xffff"),
+    (None, [],              b"\x66\x0f\xb1\xcb",                          "cmpxchg bx, cx"),
+
+    (None, [],              b"\x66\xb8\xff\xff",                          "mov ax, 0xffff"),
+    (None, [],              b"\x66\xbb\xff\x7f",                          "mov bx, 0x7fff"),
+    (None, [],              b"\x66\xb9\x00\x80",                          "mov cx, 0x8000"),
+    (None, [],              b"\x66\x0f\xb1\xcb",                          "cmpxchg bx, cx"),
+
+    (None, [],              b"\x66\xb8\x00\x80",                          "mov ax, 0x8000"),
+    (None, [],              b"\x66\xbb\x00\x80",                          "mov bx, 0x8000"),
+    (None, [],              b"\x66\xb9\x01\x00",                          "mov cx, 0x0001"),
+    (None, [],              b"\x66\x0f\xb1\xcb",                          "cmpxchg bx, cx"),
+
+    (None, [],              b"\x66\xb8\x34\x12",                          "mov ax, 0x1234"),
+    (None, [],              b"\x66\xbb\x78\x56",                          "mov bx, 0x5678"),
+    (None, [],              b"\x66\xb9\xbc\x9a",                          "mov cx, 0x9abc"),
+    (None, [],              b"\x66\x0f\xb1\xcb",                          "cmpxchg bx, cx"),
+
+    (None, [],              b"\xb8\x01\x00\x00\x00",                      "mov eax, 1"),
+    (None, [],              b"\xbb\x02\x00\x00\x00",                      "mov ebx, 2"),
+    (None, [],              b"\xb9\x03\x00\x00\x00",                      "mov ecx, 3"),
+    (None, [],              b"\x0f\xb1\xcb",                              "cmpxchg ebx, ecx"),
+
+    (None, [],              b"\xb8\x00\x00\x00\x00",                      "mov eax, 0"),
+    (None, [],              b"\xbb\x00\x00\x00\x00",                      "mov ebx, 0"),
+    (None, [],              b"\xb9\xff\xff\xff\xff",                      "mov ecx, 0xffffffff"),
+    (None, [],              b"\x0f\xb1\xcb",                              "cmpxchg ebx, ecx"),
+
+    (None, [],              b"\xb8\xff\xff\xff\xff",                      "mov eax, 0xffffffff"),
+    (None, [],              b"\xbb\xff\xff\xff\x7f",                      "mov ebx, 0x7fffffff"),
+    (None, [],              b"\xb9\x00\x00\x00\x80",                      "mov ecx, 0x80000000"),
+    (None, [],              b"\x0f\xb1\xcb",                              "cmpxchg ebx, ecx"),
+
+    (None, [],              b"\xb8\x00\x00\x00\x80",                      "mov eax, 0x80000000"),
+    (None, [],              b"\xbb\x00\x00\x00\x80",                      "mov ebx, 0x80000000"),
+    (None, [],              b"\xb9\x01\x00\x00\x00",                      "mov ecx, 0x00000001"),
+    (None, [],              b"\x0f\xb1\xcb",                              "cmpxchg ebx, ecx"),
+
+    (None, [],              b"\xb8\x78\x56\x34\x12",                      "mov eax, 0x12345678"),
+    (None, [],              b"\xbb\x21\x43\x65\x87",                      "mov ebx, 0x87654321"),
+    (None, [],              b"\xb9\xdd\xcc\xbb\xaa",                      "mov ecx, 0xaabbccdd"),
+    (None, [],              b"\x0f\xb1\xcb",                              "cmpxchg ebx, ecx"),
+
+    (None, [],              b"\x48\xc7\xc0\x01\x00\x00\x00",              "mov rax, 1"),
+    (None, [],              b"\x48\xc7\xc3\x02\x00\x00\x00",              "mov rbx, 2"),
+    (None, [],              b"\x48\xc7\xc1\x03\x00\x00\x00",              "mov rcx, 3"),
+    (None, [],              b"\x48\x0f\xb1\xcb",                          "cmpxchg rbx, rcx"),
+
+    (None, [],              b"\x48\xc7\xc0\x00\x00\x00\x00",              "mov rax, 0"),
+    (None, [],              b"\x48\xc7\xc3\x00\x00\x00\x00",              "mov rbx, 0"),
+    (None, [],              b"\x48\xc7\xc1\xff\xff\xff\xff",              "mov rcx, -1"),
+    (None, [],              b"\x48\x0f\xb1\xcb",                          "cmpxchg rbx, rcx"),
+
+    (None, [],              b"\x48\xc7\xc0\xff\xff\xff\xff",              "mov rax, -1"),
+    (None, [],              b"\x48\xbb\xff\xff\xff\xff\xff\xff\xff\x7f",  "mov rbx, 0x7fffffffffffffff"),
+    (None, [],              b"\x48\xb9\x00\x00\x00\x00\x00\x00\x00\x80",  "mov rcx, 0x8000000000000000"),
+    (None, [],              b"\x48\x0f\xb1\xcb",                          "cmpxchg rbx, rcx"),
+
+    (None, [],              b"\x48\xb8\x00\x00\x00\x00\x00\x00\x00\x80",  "mov rax, 0x8000000000000000"),
+    (None, [],              b"\x48\xbb\x00\x00\x00\x00\x00\x00\x00\x80",  "mov rbx, 0x8000000000000000"),
+    (None, [],              b"\x48\xc7\xc1\x01\x00\x00\x00",              "mov rcx, 1"),
+    (None, [],              b"\x48\x0f\xb1\xcb",                          "cmpxchg rbx, rcx"),
+
+    (None, [],              b"\x48\xb8\xf0\xde\xbc\x9a\x78\x56\x34\x12",  "mov rax, 0x123456789abcdef0"),
+    (None, [],              b"\x48\xbb\x21\x43\x65\x87\xa9\xcb\xed\x0f",  "mov rbx, 0x0fedcba987654321"),
+    (None, [],              b"\x48\xb9\x11\x00\xff\xee\xdd\xcc\xbb\xaa",  "mov rcx, 0xaabbccddeeff0011"),
+    (None, [],              b"\x48\x0f\xb1\xcb",                          "cmpxchg rbx, rcx"),
+
     (None, [], b'H\xc7\xc3\x10\x000\x00',   'mov rbx, 0x300010'),
     (None, [], b'\x0f(\x0b',                'movaps xmm1, [rbx]'),
     (None, [], b'f\x0fq\xf1\x00',           'psllw xmm1, 0'),
