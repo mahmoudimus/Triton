@@ -5051,9 +5051,7 @@ namespace triton {
           expr6 = this->symbolicEngine->createSymbolicExpression(inst, node2, src1, "XCHG operation");
 
         /* Accumulator */
-        if (nodeq->evaluate() == true)
-          expr7 = this->symbolicEngine->createSymbolicExpression(inst, node3p, accumulatorp, "XCHG operation");
-        else
+        if (nodeq->evaluate() == false)
           expr7 = this->symbolicEngine->createSymbolicExpression(inst, node3, accumulator, "XCHG operation");
 
         /* Spread taint */
@@ -5063,7 +5061,8 @@ namespace triton {
         expr4->isTainted = expr1->isTainted;
         expr5->isTainted = expr1->isTainted;
         expr6->isTainted = this->taintEngine->taintAssignment(src1, src2);
-        expr7->isTainted = this->taintEngine->taintAssignment(accumulator, src1);
+        if (nodeq->evaluate() == false)
+          expr7->isTainted = this->taintEngine->taintAssignment(accumulator, src1);
 
         /* Update symbolic flags */
         this->af_s(inst, expr1, accumulator, op1, op2, true);
