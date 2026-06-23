@@ -34,6 +34,10 @@ namespace triton {
       #include <capstone/capstone.h>
       #include <capstone/riscv.h>
       #include <capstone/x86.h>
+
+      #if CS_API_MAJOR >= 6
+      constexpr auto CS_ARCH_ARM64 = CS_ARCH_AARCH64;
+      #endif
     /*! @} End of capstone namespace */
     };
 
