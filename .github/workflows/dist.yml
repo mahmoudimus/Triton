@@ -354,18 +354,19 @@ jobs:
           TRITON_WHEEL_LOCAL_VERSION: ${{ matrix.local }}
         run: python -m build --wheel --outdir wheelhouse/raw
 
+      # Deliberately no DYLD_* here. The LLVM tarball ships its own libc++, and
+      # DYLD_LIBRARY_PATH overrides normal resolution for every process, so python
+      # itself picks up LLVM's libc++ and dies with "Bus error: 10".
+      - name: Install delocate
+        run: python -m pip install -q delocate
+
       # delocate copies z3/capstone/LLVM into the wheel and rewrites the load paths.
+      # DYLD_FALLBACK_LIBRARY_PATH is only consulted after normal resolution fails,
+      # so delocate can still find the dependencies without hijacking python's own.
       - name: Repair wheel
         env:
-          DYLD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.LLVM_PATH }}/lib
+          DYLD_FALLBACK_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.LLVM_PATH }}/lib
         run: |
-          # pip has intermittently bus-errored on macos-15 arm64 runners.
-          for attempt in 1 2 3; do
-            python -m pip install -q delocate && break
-            echo "delocate install attempt $attempt failed; retrying"
-            sleep 5
-          done
-          python -c "import delocate"
           for whl in wheelhouse/raw/*.whl; do
             delocate-wheel -v -w wheelhouse/macos_arm64 "$whl"
           done
