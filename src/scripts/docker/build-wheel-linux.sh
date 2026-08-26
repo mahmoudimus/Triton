@@ -25,7 +25,8 @@ set -e
 DEPENDENCIES_DIR=/tmp/triton-dependencies
 LLVM_DIR=/llvm
 SOURCE_DIR=/src
-WHEEL_DIR=$SOURCE_DIR/wheelhouse
+# Overridable so variant builds (for example without LLVM) land side by side.
+WHEEL_DIR=${WHEEL_DIR:-$SOURCE_DIR/wheelhouse}
 
 # Set environment variables for building Triton.
 echo "[+] Setup environment variables"
@@ -36,8 +37,10 @@ export CAPSTONE_LIBRARIES=/usr/lib/libcapstone.so
 export BITWUZLA_INTERFACE=On
 export BITWUZLA_INCLUDE_DIRS=$DEPENDENCIES_DIR/bitwuzla/install/include
 export BITWUZLA_LIBRARIES=$DEPENDENCIES_DIR/bitwuzla/install/lib64/libbitwuzla.so
-export LLVM_INTERFACE=ON
+export LLVM_INTERFACE=${LLVM_INTERFACE:-ON}
 export CMAKE_PREFIX_PATH=$LLVM_DIR
+export TRITON_WHEEL_LOCAL_VERSION=${TRITON_WHEEL_LOCAL_VERSION:-}
+echo "[+] LLVM_INTERFACE=$LLVM_INTERFACE  WHEEL_DIR=$WHEEL_DIR  LOCAL_VERSION=${TRITON_WHEEL_LOCAL_VERSION:-<none>}"
 
 # Build Triton Python wheel package for Python 3.9.
 echo "[+] Build Triton wheel package for Python 3.9"

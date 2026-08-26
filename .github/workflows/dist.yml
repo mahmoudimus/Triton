@@ -18,11 +18,11 @@ on:
     branches: [fork, dev-v1.0]
   workflow_dispatch:
     inputs:
-      llvm-interface:
-        description: Build the LLVM lifting interface (adds ~200 static libs where LLVM has no shared dylib)
+      variants:
+        description: Which LLVM variants to build
         type: choice
-        options: ['ON', 'OFF']
-        default: 'ON'
+        options: ['both', 'llvm-only', 'nollvm-only']
+        default: 'both'
 
 concurrency:
   group: dist-${{ github.ref }}
@@ -32,7 +32,6 @@ permissions:
   contents: read
 
 env:
-  LLVM_INTERFACE: ${{ inputs.llvm-interface || 'ON' }}
   LLVM_VERSION: '19'
   CAPSTONE_VERSION: '5.0.7'
 
@@ -41,15 +40,19 @@ jobs:
   # Static C++ package: libtriton.a + headers + a relocatable CMake config.
   # ---------------------------------------------------------------------------
   static:
-    name: static / ${{ matrix.label }}
+    name: static / ${{ matrix.label }}${{ matrix.suffix }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        llvm: ['ON', 'OFF']
+        os: [ubuntu-24.04, macos-15, windows-2022]
         include:
           - { os: ubuntu-24.04, label: linux-x64 }
           - { os: macos-15,     label: macos-arm64 }
           - { os: windows-2022, label: windows-x64 }
+          - { llvm: 'ON',  suffix: '' }
+          - { llvm: 'OFF', suffix: '-nollvm' }
 
     steps:
       - name: Checkout
@@ -107,11 +110,11 @@ jobs:
             -DZ3_INTERFACE=ON \
             "-DZ3_INCLUDE_DIRS=${Z3_INCLUDE_DIRS}" \
             "-DZ3_LIBRARIES=${Z3_LIBRARIES}" \
-            "-DLLVM_INTERFACE=${LLVM_INTERFACE}" \
+            -DLLVM_INTERFACE=${{ matrix.llvm }} \
             "-DCMAKE_PREFIX_PATH=${LLVM_PATH}" \
             "-DCAPSTONE_INCLUDE_DIRS=${CAPSTONE_INCLUDE_DIRS}" \
             "-DCAPSTONE_LIBRARIES=${CAPSTONE_LIBRARIES}" \
-            "-DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}"
+            "-DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}${{ matrix.suffix }}"
 
       - name: Build
         shell: bash
@@ -125,7 +128,7 @@ jobs:
         shell: bash
         run: |
           python .github/scripts/package_triton.py \
-            --prefix "${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}" \
+            --prefix "${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}${{ matrix.suffix }}" \
             --bundle-capstone "${CAPSTONE_ROOT}" \
             --bundle-z3 "${Z3_INCLUDE_DIRS}/.."
 
@@ -133,15 +136,15 @@ jobs:
         shell: bash
         run: |
           python .github/scripts/smoke_consume.py \
-            --package "${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}" \
+            --package "${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}${{ matrix.suffix }}" \
             --workdir "${RUNNER_TEMP}/smoke" \
             --llvm "${LLVM_PATH}"
 
       - name: Upload package
         uses: actions/upload-artifact@v7
         with:
-          name: triton-static-${{ matrix.label }}
-          path: stage/triton-static-${{ matrix.label }}
+          name: triton-static-${{ matrix.label }}${{ matrix.suffix }}
+          path: stage/triton-static-${{ matrix.label }}${{ matrix.suffix }}
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
@@ -208,7 +211,7 @@ jobs:
             -DZ3_INTERFACE=ON \
             "-DZ3_INCLUDE_DIRS=${Z3_INCLUDE_DIRS}" \
             "-DZ3_LIBRARIES=${Z3_LIBRARIES}" \
-            "-DLLVM_INTERFACE=${LLVM_INTERFACE}" \
+            -DLLVM_INTERFACE=ON \
             "-DCMAKE_PREFIX_PATH=${LLVM_PATH}" \
             "-DCAPSTONE_INCLUDE_DIRS=${CAPSTONE_INCLUDE_DIRS}" \
             "-DCAPSTONE_LIBRARIES=${CAPSTONE_LIBRARIES}" \
@@ -253,8 +256,14 @@ jobs:
   # an unrepaired wheel only works on the machine that built it.
   # ---------------------------------------------------------------------------
   wheels-linux:
-    name: wheels / manylinux-x86_64
+    name: wheels / manylinux-x86_64${{ matrix.suffix }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { llvm: 'ON',  suffix: '',        local: '' }
+          - { llvm: 'OFF', suffix: '-nollvm', local: 'nollvm' }
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -273,12 +282,15 @@ jobs:
           docker run --rm \
             --volume "$GITHUB_WORKSPACE:/src" \
             --volume "${{ env.LLVM_PATH }}:/llvm" \
+            --env LLVM_INTERFACE=${{ matrix.llvm }} \
+            --env TRITON_WHEEL_LOCAL_VERSION=${{ matrix.local }} \
+            --env WHEEL_DIR=/src/wheelhouse${{ matrix.suffix }} \
             build-triton-linux-x86_64 bash /src/src/scripts/docker/build-wheel-linux.sh
 
       - name: Verify each wheel installs and imports
         run: |
           shopt -s nullglob
-          for whl in wheelhouse/manylinux_2_34_x86_64/*.whl; do
+          for whl in wheelhouse${{ matrix.suffix }}/manylinux_2_34_x86_64/*.whl; do
             echo "== $whl"
             python -m venv /tmp/v && /tmp/v/bin/pip install -q "$whl"
             /tmp/v/bin/python -c "import triton; print('  ok', triton.VERSION.MAJOR, triton.VERSION.MINOR, triton.VERSION.BUILD)"
@@ -288,17 +300,21 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: triton-wheels-manylinux-x86_64
-          path: wheelhouse/manylinux_2_34_x86_64/*.whl
+          name: triton-wheels-manylinux-x86_64${{ matrix.suffix }}
+          path: wheelhouse${{ matrix.suffix }}/manylinux_2_34_x86_64/*.whl
           if-no-files-found: error
 
   wheels-macos:
-    name: wheels / macos-arm64 py${{ matrix.python-version }}
+    name: wheels / macos-arm64${{ matrix.suffix }} py${{ matrix.python-version }}
     runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.12', '3.13']
+        llvm: ['ON', 'OFF']
+        include:
+          - { llvm: 'ON',  suffix: '',        local: '' }
+          - { llvm: 'OFF', suffix: '-nollvm', local: 'nollvm' }
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -313,8 +329,9 @@ jobs:
       - name: Build wheel
         env:
           Z3_INTERFACE: 'ON'
-          LLVM_INTERFACE: ${{ env.LLVM_INTERFACE }}
+          LLVM_INTERFACE: ${{ matrix.llvm }}
           CMAKE_PREFIX_PATH: ${{ env.LLVM_PATH }}
+          TRITON_WHEEL_LOCAL_VERSION: ${{ matrix.local }}
         run: python -m build --wheel --outdir wheelhouse/raw
 
       # delocate copies z3/capstone/LLVM into the wheel and rewrites the load paths.
@@ -336,17 +353,21 @@ jobs:
       - name: Upload wheel
         uses: actions/upload-artifact@v7
         with:
-          name: triton-wheel-macos-arm64-py${{ matrix.python-version }}
+          name: triton-wheel-macos-arm64${{ matrix.suffix }}-py${{ matrix.python-version }}
           path: wheelhouse/macos_arm64/*.whl
           if-no-files-found: error
 
   wheels-windows:
-    name: wheels / windows-x64 py${{ matrix.python-version }}
+    name: wheels / windows-x64${{ matrix.suffix }} py${{ matrix.python-version }}
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.12', '3.13']
+        llvm: ['ON', 'OFF']
+        include:
+          - { llvm: 'ON',  suffix: '',        local: '' }
+          - { llvm: 'OFF', suffix: '-nollvm', local: 'nollvm' }
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -364,6 +385,9 @@ jobs:
           PYTHON_VERSION: ${{ matrix.python-version }}
           PYTHON_INCLUDE_DIRS: ${{ env.pythonLocation }}\include
           Z3_INTERFACE: 'ON'
+          LLVM_INTERFACE: ${{ matrix.llvm }}
+          CMAKE_PREFIX_PATH: ${{ env.LLVM_PATH }}
+          TRITON_WHEEL_LOCAL_VERSION: ${{ matrix.local }}
         run: python -m build --wheel --outdir wheelhouse\raw
 
       # delvewheel vendors libz3.dll / capstone.dll into the wheel.
@@ -385,7 +409,7 @@ jobs:
       - name: Upload wheel
         uses: actions/upload-artifact@v7
         with:
-          name: triton-wheel-windows-x64-py${{ matrix.python-version }}
+          name: triton-wheel-windows-x64${{ matrix.suffix }}-py${{ matrix.python-version }}
           path: wheelhouse/windows_x64/*.whl
           if-no-files-found: error
 

@@ -38,8 +38,17 @@ BOOST_INTERFACE = OFF
 BUILDTOOLS = vs2022 # clang or clang_cl or vs2022
 CMAKE_BUILD_TYPE = Release # Release or Debug
 
+# NOTE: the parentheses matter. Without them `a + b if c else d` binds as
+# `(a + b) if c else d`, so VERSION collapsed to '' whenever RELEASE_CANDIDATE was 0.
 VERSION = f'{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}' + \
-            f'rc{RELEASE_CANDIDATE}' if RELEASE_CANDIDATE else ''
+            (f'rc{RELEASE_CANDIDATE}' if RELEASE_CANDIDATE else '')
+
+# Optional PEP 440 local version segment, so variants of the same source (for
+# example a build without the LLVM lifting interface) produce distinct wheel
+# filenames and can sit side by side on a release.
+_LOCAL_VERSION = os.getenv('TRITON_WHEEL_LOCAL_VERSION', '').strip()
+if _LOCAL_VERSION:
+    VERSION += '+' + re.sub(r'[^A-Za-z0-9.]', '.', _LOCAL_VERSION)
 
 def is_cmake_true(value):
     """Check if CMake would parse the value as True or False. Might not be completely accurate.
