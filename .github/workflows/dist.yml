@@ -1,0 +1,456 @@
+# Build distributable Triton packages from this fork.
+#
+# Produces two independent things, because they cannot come from one build tree:
+#   * static  -> libtriton.a / triton.lib for linking into C++ projects (IDA plugins).
+#                PYTHON_BINDINGS is forced OFF by cmake_dependent_option when
+#                BUILD_SHARED_LIBS=OFF, so this archive has no CPython dependency.
+#   * python  -> libtriton.so/.dylib/.dll, copied by the `python-triton` target to
+#                triton.so / triton.pyd. This one DOES link libpython.
+#
+# Pushing a v* tag publishes every artifact to a GitHub Release on this fork.
+name: dist
+
+on:
+  push:
+    branches: [fork, dev-v1.0]
+    tags: ['v*']
+  pull_request:
+    branches: [fork, dev-v1.0]
+  workflow_dispatch:
+    inputs:
+      llvm-interface:
+        description: Build the LLVM lifting interface (adds ~200 static libs where LLVM has no shared dylib)
+        type: choice
+        options: ['ON', 'OFF']
+        default: 'ON'
+
+concurrency:
+  group: dist-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  LLVM_INTERFACE: ${{ inputs.llvm-interface || 'ON' }}
+  LLVM_VERSION: '19'
+  CAPSTONE_VERSION: '5.0.7'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Static C++ package: libtriton.a + headers + a relocatable CMake config.
+  # ---------------------------------------------------------------------------
+  static:
+    name: static / ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, label: linux-x64 }
+          - { os: macos-15,     label: macos-arm64 }
+          - { os: windows-2022, label: windows-x64 }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # `uses:` cannot take an expression, so the platform is selected with `if:`.
+      # capstone-shared=OFF: a static Triton wants a static Capstone, otherwise the
+      # consumer still needs libcapstone.so at runtime.
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-triton-deps/linux
+        with:
+          python-version: '3.11'
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+          capstone-shared: 'OFF'
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        uses: ./.github/actions/install-triton-deps/macos
+        with:
+          python-version: '3.11'
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+          capstone-shared: 'OFF'
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/install-triton-deps/windows
+        with:
+          python-version: '3.11'
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+          capstone-shared: 'OFF'
+
+      # Every later step runs under bash (present on all runners); Windows paths are
+      # normalised to forward slashes so they survive bash quoting and CMake parsing.
+      - name: Normalise dependency paths (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($v in 'Z3_INCLUDE_DIRS','Z3_LIBRARIES','Z3_BIN_DIR','CAPSTONE_INCLUDE_DIRS','CAPSTONE_LIBRARIES','CAPSTONE_ROOT','CAPSTONE_BIN_DIR','LLVM_PATH') {
+            $val = [Environment]::GetEnvironmentVariable($v)
+            if ($val) { "$v=$($val -replace '\\','/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DMSVC_STATIC=OFF \
+            -DZ3_INTERFACE=ON \
+            "-DZ3_INCLUDE_DIRS=${Z3_INCLUDE_DIRS}" \
+            "-DZ3_LIBRARIES=${Z3_LIBRARIES}" \
+            "-DLLVM_INTERFACE=${LLVM_INTERFACE}" \
+            "-DCMAKE_PREFIX_PATH=${LLVM_PATH}" \
+            "-DCAPSTONE_INCLUDE_DIRS=${CAPSTONE_INCLUDE_DIRS}" \
+            "-DCAPSTONE_LIBRARIES=${CAPSTONE_LIBRARIES}" \
+            "-DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release --parallel
+
+      - name: Install
+        shell: bash
+        run: cmake --install build --config Release
+
+      - name: Make the package relocatable
+        shell: bash
+        run: |
+          python .github/scripts/package_triton.py \
+            --prefix "${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}" \
+            --bundle-capstone "${CAPSTONE_ROOT}" \
+            --bundle-z3 "${Z3_INCLUDE_DIRS}/.."
+
+      - name: Smoke test - consume the package from an unrelated directory
+        shell: bash
+        run: |
+          python .github/scripts/smoke_consume.py \
+            --package "${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}" \
+            --workdir "${RUNNER_TEMP}/smoke" \
+            --llvm "${LLVM_PATH}"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: triton-static-${{ matrix.label }}
+          path: stage/triton-static-${{ matrix.label }}
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Python module: the shared libtriton, copied to triton.so / triton.pyd.
+  # ---------------------------------------------------------------------------
+  python:
+    name: python ${{ matrix.python-version }} / ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+        os: [ubuntu-24.04, macos-15, windows-2022]
+        include:
+          - { os: ubuntu-24.04, label: linux-x64 }
+          - { os: macos-15,     label: macos-arm64 }
+          - { os: windows-2022, label: windows-x64 }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-triton-deps/linux
+        with:
+          python-version: ${{ matrix.python-version }}
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        uses: ./.github/actions/install-triton-deps/macos
+        with:
+          python-version: ${{ matrix.python-version }}
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/install-triton-deps/windows
+        with:
+          python-version: ${{ matrix.python-version }}
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+
+      - name: Normalise dependency paths (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($v in 'Z3_INCLUDE_DIRS','Z3_LIBRARIES','Z3_BIN_DIR','CAPSTONE_INCLUDE_DIRS','CAPSTONE_LIBRARIES','CAPSTONE_ROOT','CAPSTONE_BIN_DIR','LLVM_PATH') {
+            $val = [Environment]::GetEnvironmentVariable($v)
+            if ($val) { "$v=$($val -replace '\\','/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DPYTHON_BINDINGS=ON \
+            -DPYTHON_BINDINGS_AUTOCOMPLETE=ON \
+            -DZ3_INTERFACE=ON \
+            "-DZ3_INCLUDE_DIRS=${Z3_INCLUDE_DIRS}" \
+            "-DZ3_LIBRARIES=${Z3_LIBRARIES}" \
+            "-DLLVM_INTERFACE=${LLVM_INTERFACE}" \
+            "-DCMAKE_PREFIX_PATH=${LLVM_PATH}" \
+            "-DCAPSTONE_INCLUDE_DIRS=${CAPSTONE_INCLUDE_DIRS}" \
+            "-DCAPSTONE_LIBRARIES=${CAPSTONE_LIBRARIES}" \
+            "-DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/stage/triton-python-${{ matrix.label }}-py${{ matrix.python-version }}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release --parallel --target triton python-triton python_autocomplete
+
+      # ctest launches binaries that still resolve z3/capstone dynamically.
+      - name: Stage runtime DLLs (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          out=build/src/libtriton/Release
+          [ -d "$out" ] || out=build/src/libtriton
+          cp "${Z3_BIN_DIR}/libz3.dll" "$out/" || true
+          cp "${CAPSTONE_BIN_DIR}/capstone.dll" "$out/" || true
+
+      - name: Test
+        shell: bash
+        env:
+          LD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.BITWUZLA_LIB_DIR }}
+          DYLD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.BITWUZLA_LIB_DIR }}
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Install
+        shell: bash
+        run: cmake --install build --config Release
+
+      - name: Upload module
+        uses: actions/upload-artifact@v7
+        with:
+          name: triton-python-${{ matrix.label }}-py${{ matrix.python-version }}
+          path: stage/triton-python-${{ matrix.label }}-py${{ matrix.python-version }}
+          if-no-files-found: error
+
+
+  # ---------------------------------------------------------------------------
+  # pip-installable wheels. Each one is "repaired" (auditwheel / delocate /
+  # delvewheel) so the shared libraries it needs travel inside the wheel --
+  # an unrepaired wheel only works on the machine that built it.
+  # ---------------------------------------------------------------------------
+  wheels-linux:
+    name: wheels / manylinux-x86_64
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build manylinux image
+        run: bash ./src/scripts/docker/build-docker-image.sh
+
+      - name: Install LLVM
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: '14'
+          directory: ${{ runner.temp }}/llvm
+
+      - name: Build wheels (Python 3.9 - 3.14)
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/src" \
+            --volume "${{ env.LLVM_PATH }}:/llvm" \
+            build-triton-linux-x86_64 bash /src/src/scripts/docker/build-wheel-linux.sh
+
+      - name: Verify each wheel installs and imports
+        run: |
+          shopt -s nullglob
+          for whl in wheelhouse/manylinux_2_34_x86_64/*.whl; do
+            echo "== $whl"
+            python -m venv /tmp/v && /tmp/v/bin/pip install -q "$whl"
+            /tmp/v/bin/python -c "import triton; print('  ok', triton.VERSION.MAJOR, triton.VERSION.MINOR, triton.VERSION.BUILD)"
+            rm -rf /tmp/v
+          done
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v7
+        with:
+          name: triton-wheels-manylinux-x86_64
+          path: wheelhouse/manylinux_2_34_x86_64/*.whl
+          if-no-files-found: error
+
+  wheels-macos:
+    name: wheels / macos-arm64 py${{ matrix.python-version }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-triton-deps/macos
+        with:
+          python-version: ${{ matrix.python-version }}
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+
+      - name: Build wheel
+        env:
+          Z3_INTERFACE: 'ON'
+          LLVM_INTERFACE: ${{ env.LLVM_INTERFACE }}
+          CMAKE_PREFIX_PATH: ${{ env.LLVM_PATH }}
+        run: python -m build --wheel --outdir wheelhouse/raw
+
+      # delocate copies z3/capstone/LLVM into the wheel and rewrites the load paths.
+      - name: Repair wheel
+        env:
+          DYLD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.LLVM_PATH }}/lib
+        run: |
+          python -m pip install -q delocate
+          for whl in wheelhouse/raw/*.whl; do
+            delocate-wheel -v -w wheelhouse/macos_arm64 "$whl"
+          done
+
+      - name: Verify the wheel installs and imports
+        run: |
+          python -m venv /tmp/v
+          /tmp/v/bin/pip install -q wheelhouse/macos_arm64/*.whl
+          /tmp/v/bin/python -c "import triton; ctx=triton.TritonContext(triton.ARCH.X86_64); ctx.setSolver(triton.SOLVER.Z3); print('ok', triton.VERSION.BUILD)"
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: triton-wheel-macos-arm64-py${{ matrix.python-version }}
+          path: wheelhouse/macos_arm64/*.whl
+          if-no-files-found: error
+
+  wheels-windows:
+    name: wheels / windows-x64 py${{ matrix.python-version }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        uses: ./.github/actions/install-triton-deps/windows
+        with:
+          python-version: ${{ matrix.python-version }}
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+
+      - name: Build wheel
+        shell: pwsh
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
+          PYTHON_INCLUDE_DIRS: ${{ env.pythonLocation }}\include
+          Z3_INTERFACE: 'ON'
+        run: python -m build --wheel --outdir wheelhouse\raw
+
+      # delvewheel vendors libz3.dll / capstone.dll into the wheel.
+      - name: Repair wheel
+        shell: pwsh
+        run: |
+          python -m pip install -q delvewheel
+          Get-ChildItem wheelhouse\raw\*.whl | ForEach-Object {
+            delvewheel repair --add-path "${{ env.Z3_BIN_DIR }}" --add-path "${{ env.CAPSTONE_BIN_DIR }}" --wheel-dir wheelhouse\windows_x64 $_.FullName
+          }
+
+      - name: Verify the wheel installs and imports
+        shell: pwsh
+        run: |
+          python -m venv $env:TEMP\v
+          & "$env:TEMP\v\Scripts\pip.exe" install -q (Get-ChildItem wheelhouse\windows_x64\*.whl | Select-Object -First 1).FullName
+          & "$env:TEMP\v\Scripts\python.exe" -c "import triton; ctx=triton.TritonContext(triton.ARCH.X86_64); ctx.setSolver(triton.SOLVER.Z3); print('ok', triton.VERSION.BUILD)"
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: triton-wheel-windows-x64-py${{ matrix.python-version }}
+          path: wheelhouse/windows_x64/*.whl
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Publish everything to a Release on this fork when a v* tag is pushed.
+  # ---------------------------------------------------------------------------
+  release:
+    name: release
+    needs: [static, python, wheels-linux, wheels-macos, wheels-windows]
+    # Tag pushes make a real release; branch pushes refresh a rolling `nightly`
+    # prerelease so there is always a plain download URL without tagging.
+    if: >-
+      github.repository_owner == 'mahmoudimus' &&
+      github.event_name == 'push' &&
+      (startsWith(github.ref, 'refs/tags/v') ||
+       github.ref == 'refs/heads/dev-v1.0' ||
+       github.ref == 'refs/heads/fork')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download all packages
+        uses: actions/download-artifact@v7
+        with:
+          path: dist
+
+      - name: Collect release assets
+        shell: bash
+        run: |
+          mkdir -p upload
+          cd dist
+          for d in */; do
+            name="${d%/}"
+            case "$name" in
+              # wheels ship as-is; re-archiving them would make them un-installable
+              *wheel*)   cp "$name"/*.whl "${GITHUB_WORKSPACE}/upload/" ;;
+              *windows*) (cd "$name" && zip -qr "${GITHUB_WORKSPACE}/upload/${name}.zip" .) ;;
+              *)         tar -czf "${GITHUB_WORKSPACE}/upload/${name}.tar.gz" -C "$name" . ;;
+            esac
+          done
+          ls -la "${GITHUB_WORKSPACE}/upload"
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+      - name: Refresh rolling nightly prerelease
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/*
+          tag_name: nightly
+          target_commitish: ${{ github.sha }}
+          name: Nightly (${{ github.ref_name }})
+          body: |
+            Rolling build of `${{ github.ref_name }}` at ${{ github.sha }}.
+            Replaced on every push -- pin a `v*` release if you need a stable URL.
+
+            * `triton-*.whl` - pip-installable, dependencies vendored in
+            * `triton-static-*` - libtriton.a / triton.lib + headers + relocatable CMake config
+            * `triton-python-*` - the raw triton.so / triton.pyd install tree
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true

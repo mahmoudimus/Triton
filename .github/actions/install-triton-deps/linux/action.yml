@@ -15,6 +15,9 @@ inputs:
   capstone-version:
     description: Capstone version to install
     default: '5.0.7'
+  capstone-shared:
+    description: Build Capstone as a shared library (ON) or a static one (OFF)
+    default: 'ON'
 
 runs:
   using: composite
@@ -77,7 +80,7 @@ runs:
 
     - name: Install Capstone
       run: |
-        wget -q https://github.com/capstone-engine/capstone/releases/download/5.0.7/capstone-${{ inputs.capstone-version }}.tar.xz
+        wget -q https://github.com/capstone-engine/capstone/releases/download/${{ inputs.capstone-version }}/capstone-${{ inputs.capstone-version }}.tar.xz
         tar -xf capstone-${{ inputs.capstone-version }}.tar.xz
         cd capstone-${{ inputs.capstone-version }}
         cmake -B build \
@@ -86,12 +89,15 @@ runs:
           -DCAPSTONE_ARM64_SUPPORT=ON \
           -DCAPSTONE_X86_SUPPORT=ON \
           -DCAPSTONE_RISCV_SUPPORT=ON \
-          -DBUILD_SHARED_LIBS=ON \
+          -DBUILD_SHARED_LIBS=${{ inputs.capstone-shared }} \
+          -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
           -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release --parallel
         cmake --install build --config Release --prefix install
         echo "CAPSTONE_INCLUDE_DIRS=$GITHUB_WORKSPACE/capstone-${{ inputs.capstone-version }}/install/include" >> $GITHUB_ENV
-        echo "CAPSTONE_LIBRARIES=$GITHUB_WORKSPACE/capstone-${{ inputs.capstone-version }}/install/lib/libcapstone.so" >> $GITHUB_ENV
+        if [ "${{ inputs.capstone-shared }}" = "ON" ]; then CS_LIB=libcapstone.so; else CS_LIB=libcapstone.a; fi
+        echo "CAPSTONE_LIBRARIES=$GITHUB_WORKSPACE/capstone-${{ inputs.capstone-version }}/install/lib/$CS_LIB" >> $GITHUB_ENV
+        echo "CAPSTONE_ROOT=$GITHUB_WORKSPACE/capstone-${{ inputs.capstone-version }}/install" >> $GITHUB_ENV
       shell: bash
 
     - name: Install Unicorn and LIEF

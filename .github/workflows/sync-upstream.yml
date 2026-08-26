@@ -1,0 +1,111 @@
+# Keep this fork primary: pull JonathanSalwan/Triton's dev-v1.0 in on a schedule and
+# propose it as a pull request, rather than fast-forwarding the fork's own branch.
+#
+# A clean merge opens (or updates) a PR. A conflicting merge fails loudly with the
+# conflicting paths -- resolve those locally, because a bot should not be guessing at
+# semantics merges in x86Semantics.cpp.
+name: sync-upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays, 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      upstream-branch:
+        description: Upstream branch to merge from
+        default: dev-v1.0
+      upstream-url:
+        description: Upstream repository
+        default: https://github.com/JonathanSalwan/Triton.git
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    # Only meaningful on the fork itself, never in a downstream fork-of-a-fork.
+    if: github.repository_owner == 'mahmoudimus'
+    runs-on: ubuntu-24.04
+    env:
+      UPSTREAM_URL: ${{ inputs.upstream-url || 'https://github.com/JonathanSalwan/Triton.git' }}
+      UPSTREAM_BRANCH: ${{ inputs.upstream-branch || 'dev-v1.0' }}
+      BASE_BRANCH: ${{ github.event.repository.default_branch }}
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_URL" 2>/dev/null || git remote set-url upstream "$UPSTREAM_URL"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+
+      - name: Check for new commits
+        id: check
+        run: |
+          behind=$(git rev-list --count "HEAD..upstream/$UPSTREAM_BRANCH")
+          echo "behind=$behind" >> "$GITHUB_OUTPUT"
+          echo "$BASE_BRANCH is $behind commit(s) behind upstream/$UPSTREAM_BRANCH"
+          if [ "$behind" -gt 0 ]; then
+            {
+              echo "### Upstream commits to merge ($behind)"
+              echo
+              git log --oneline --no-decorate "HEAD..upstream/$UPSTREAM_BRANCH" | head -50
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Merge upstream
+        if: steps.check.outputs.behind != '0'
+        id: merge
+        run: |
+          branch="sync/upstream-${UPSTREAM_BRANCH}"
+          git switch -c "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          if git merge --no-edit "upstream/$UPSTREAM_BRANCH"; then
+            echo "clean merge"
+          else
+            echo "::error::Merge conflicts against upstream/$UPSTREAM_BRANCH -- resolve locally."
+            {
+              echo "### Merge conflicts"
+              echo
+              echo '```'
+              git diff --name-only --diff-filter=U
+              echo '```'
+              echo
+              echo "Resolve with:"
+              echo '```'
+              echo "git fetch upstream $UPSTREAM_BRANCH && git merge upstream/$UPSTREAM_BRANCH"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            git merge --abort
+            exit 1
+          fi
+
+      - name: Push and open pull request
+        if: steps.check.outputs.behind != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branch="${{ steps.merge.outputs.branch }}"
+          git push --force-with-lease origin "$branch"
+          if gh pr view "$branch" --json number >/dev/null 2>&1; then
+            echo "pull request already open, updated it"
+          else
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$branch" \
+              --title "Merge upstream ${UPSTREAM_BRANCH} (${{ steps.check.outputs.behind }} commits)" \
+              --body "Automated merge of \`upstream/${UPSTREAM_BRANCH}\` from ${UPSTREAM_URL}.
+
+          Merged cleanly. CI (\`dist\`) must pass before merging: it rebuilds the static
+          C++ package and the Python module on Linux, macOS and Windows."
+          fi
