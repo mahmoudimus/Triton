@@ -140,6 +140,18 @@ if(TRITON_LLVM_INTERFACE)
         list(APPEND _triton_deps ${{LLVM_AVAILABLE_LIBS}})
     endif()
     target_include_directories(triton::triton INTERFACE ${{LLVM_INCLUDE_DIRS}})
+
+    # LLVM 19+ Linux prebuilts ship static archives containing thin-LTO bitcode
+    # rather than ELF objects. GNU ld rejects them with
+    #   "libLLVMPasses.a: error adding symbols: file format not recognized"
+    # while lld reads them transparently. Triton's own build applies this to
+    # itself; consumers of the static package need it too.
+    if(CMAKE_SYSTEM_NAME MATCHES "Linux"
+            AND NOT LLVM_LINK_LLVM_DYLIB
+            AND LLVM_VERSION_MAJOR GREATER_EQUAL 19)
+        set_property(TARGET triton::triton APPEND PROPERTY INTERFACE_LINK_OPTIONS
+                     "-B${{LLVM_TOOLS_BINARY_DIR}}" "-fuse-ld=lld")
+    endif()
 endif()
 
 if(TRITON_BOOST_INTERFACE)

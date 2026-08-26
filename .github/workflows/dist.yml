@@ -217,9 +217,14 @@ jobs:
             "-DCAPSTONE_LIBRARIES=${CAPSTONE_LIBRARIES}" \
             "-DCMAKE_INSTALL_PREFIX=${GITHUB_WORKSPACE}/stage/triton-python-${{ matrix.label }}-py${{ matrix.python-version }}"
 
+      # Build the default target: ctest also runs the C++ example binaries
+      # (TaintRegister, IR, TestAPI, ...), which a --target triton build never
+      # produces, so they report as "Not Run" failures.
       - name: Build
         shell: bash
-        run: cmake --build build --config Release --parallel --target triton python-triton python_autocomplete
+        run: |
+          cmake --build build --config Release --parallel
+          cmake --build build --config Release --target python_autocomplete
 
       # ctest launches binaries that still resolve z3/capstone dynamically.
       - name: Stage runtime DLLs (Windows)
@@ -287,15 +292,30 @@ jobs:
             --env WHEEL_DIR=/src/wheelhouse${{ matrix.suffix }} \
             build-triton-linux-x86_64 bash /src/src/scripts/docker/build-wheel-linux.sh
 
+      # Each wheel is built for one CPython ABI, so it has to be verified with a
+      # matching interpreter. The manylinux image carries them all.
       - name: Verify each wheel installs and imports
         run: |
-          shopt -s nullglob
-          for whl in wheelhouse${{ matrix.suffix }}/manylinux_2_34_x86_64/*.whl; do
-            echo "== $whl"
-            python -m venv /tmp/v && /tmp/v/bin/pip install -q "$whl"
-            /tmp/v/bin/python -c "import triton; print('  ok', triton.VERSION.MAJOR, triton.VERSION.MINOR, triton.VERSION.BUILD)"
-            rm -rf /tmp/v
-          done
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/src" \
+            --env SUFFIX='${{ matrix.suffix }}' \
+            build-triton-linux-x86_64 bash -c '
+              set -e
+              shopt -s nullglob
+              found=0
+              for whl in /src/wheelhouse$SUFFIX/manylinux_2_34_x86_64/*.whl; do
+                found=1
+                tag=$(basename "$whl" | sed -E "s/.*-cp([0-9]+)-cp[0-9]+.*/\1/")
+                py=$(ls -d /opt/_internal/cpython-${tag:0:1}.${tag:1}.*/bin/python 2>/dev/null | head -1)
+                if [ -z "$py" ]; then echo "no interpreter for cp$tag"; exit 1; fi
+                echo "== $(basename "$whl") -> $py"
+                "$py" -m venv /tmp/v
+                /tmp/v/bin/pip install -q "$whl"
+                /tmp/v/bin/python -c "import triton; print(\"   ok build\", triton.VERSION.BUILD)"
+                rm -rf /tmp/v
+              done
+              if [ "$found" != 1 ]; then echo "no wheels produced"; exit 1; fi
+            '
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7
@@ -339,7 +359,13 @@ jobs:
         env:
           DYLD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.LLVM_PATH }}/lib
         run: |
-          python -m pip install -q delocate
+          # pip has intermittently bus-errored on macos-15 arm64 runners.
+          for attempt in 1 2 3; do
+            python -m pip install -q delocate && break
+            echo "delocate install attempt $attempt failed; retrying"
+            sleep 5
+          done
+          python -c "import delocate"
           for whl in wheelhouse/raw/*.whl; do
             delocate-wheel -v -w wheelhouse/macos_arm64 "$whl"
           done

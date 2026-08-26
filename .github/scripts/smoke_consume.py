@@ -95,8 +95,18 @@ def main() -> int:
                 for dll in Path(d).glob("*.dll"):
                     shutil.copy2(dll, exe.parent)
 
-    out = subprocess.run([str(exe)], check=True, capture_output=True, text=True)
-    print(out.stdout, end="")
+    out = subprocess.run([str(exe)], capture_output=True, text=True)
+    # Never swallow the failure: a crash here is the whole point of the test.
+    if out.stdout:
+        print(out.stdout, end="")
+    if out.stderr:
+        print("--- stderr ---", file=sys.stderr)
+        print(out.stderr, end="", file=sys.stderr)
+    if out.returncode != 0:
+        print(f"error: smoke binary exited with {out.returncode}"
+              f"{' (signal ' + str(-out.returncode) + ')' if out.returncode < 0 else ''}",
+              file=sys.stderr)
+        return 1
     if "smoke OK" not in out.stdout:
         print("error: smoke binary did not report success", file=sys.stderr)
         return 1
