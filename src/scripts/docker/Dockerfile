@@ -28,7 +28,7 @@ RUN mkdir -p $DEPENDENCIES_DIR
 # Download, build and install GMP.
 RUN echo "[+] Download, build and install GMP" && \
     cd $DEPENDENCIES_DIR && \
-    curl -LO https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz && \
+    curl -LO --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 --max-time 300 https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz && \
     tar xf gmp-6.3.0.tar.xz && \
     cd gmp-6.3.0 && \
     ./configure --disable-assembly --enable-cxx && \
@@ -38,7 +38,7 @@ RUN echo "[+] Download, build and install GMP" && \
 # Download, build and install MPFR.
 RUN echo "[+] Download, build and install MPFR" && \
     cd $DEPENDENCIES_DIR && \
-    curl -LO https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz && \
+    curl -LO --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 --max-time 300 https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz && \
     tar xf mpfr-4.2.1.tar.xz && \
     cd mpfr-4.2.1 && \
     ./configure && \
@@ -58,13 +58,13 @@ RUN echo "[+] Download, build and install Bitwuzla" && \
 # Download Z3.
 RUN echo "[+] Download Z3" && \
     cd $DEPENDENCIES_DIR && \
-    wget -q https://github.com/Z3Prover/z3/releases/download/z3-4.12.2/z3-4.12.2-x64-glibc-2.31.zip && \
+    wget -q --tries=5 --waitretry=5 --timeout=60 https://github.com/Z3Prover/z3/releases/download/z3-4.12.2/z3-4.12.2-x64-glibc-2.31.zip && \
     unzip -q z3-4.12.2-x64-glibc-2.31.zip
 
 # Download, build and install Capstone.
 RUN echo "[+] Download, build and install Capstone" && \
     cd $DEPENDENCIES_DIR && \
-    wget -q https://github.com/capstone-engine/capstone/archive/refs/tags/5.0.3.tar.gz -O capstone-5.0.3.tar.gz && \
+    wget -q --tries=5 --waitretry=5 --timeout=60 https://github.com/capstone-engine/capstone/archive/refs/tags/5.0.3.tar.gz -O capstone-5.0.3.tar.gz && \
     tar xf capstone-5.0.3.tar.gz && \
     cd ./capstone-5.0.3 && \
     CAPSTONE_ARCHS="arm aarch64 riscv x86" ./make.sh && \
