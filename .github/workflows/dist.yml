@@ -151,8 +151,16 @@ jobs:
             --bundle-capstone "${CAPSTONE_ROOT}" \
             --bundle-z3 "${Z3_INCLUDE_DIRS}/.."
 
+      # install-llvm-action exports DYLD_LIBRARY_PATH job-wide with LLVM's lib
+      # directory on it. On macOS that overrides normal resolution for every
+      # process, so the test binary picks up LLVM's copies of the C++ runtime
+      # instead of the system ones and dies with SIGSEGV/SIGABRT. A real consumer
+      # has no such variable set, so the smoke test must not either.
       - name: Smoke test - consume the package from an unrelated directory
         shell: bash
+        env:
+          DYLD_LIBRARY_PATH: ''
+          LD_LIBRARY_PATH: ''
         run: |
           python .github/scripts/smoke_consume.py \
             --package "${GITHUB_WORKSPACE}/stage/triton-static-${{ matrix.label }}${{ matrix.suffix }}" \
@@ -402,6 +410,8 @@ jobs:
           done
 
       - name: Verify the wheel installs and imports
+        env:
+          DYLD_LIBRARY_PATH: ''
         run: |
           python -m venv /tmp/v
           /tmp/v/bin/pip install -q wheelhouse/macos_arm64/*.whl
