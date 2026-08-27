@@ -1,6 +1,8 @@
 # These following tests are used to test our semantics. It relies on Unicorn emulator.
-# We test our semantics on Linux and OSX only because the setup is easier.
-if((${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin") AND PYTHON_BINDINGS)
+# Historically these ran on Linux and OSX only "because the setup is easier"; both
+# unicorn and lief publish win_amd64 wheels and none of the scripts are platform
+# specific, so Windows is included here to find out whether that still holds.
+if((${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin" OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows") AND PYTHON_BINDINGS)
     enable_testing()
 
     add_test(NAME UnicornAArch64Semantics  COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/aarch64/unicorn_test_aarch64.py)

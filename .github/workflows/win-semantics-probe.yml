@@ -1,0 +1,152 @@
+# One-off experiment: do the Unicorn differential semantics tests actually pass
+# on Windows?
+#
+# src/testers/CMakeLists.txt has gated them to Linux and Darwin since forever,
+# with the comment "because the setup is easier". Nothing about the scripts
+# looks platform specific, both unicorn and lief publish win_amd64 wheels, and
+# the Windows dependency action already pip-installs both -- so the gate may
+# just be stale. This workflow flips it and measures.
+#
+# ubuntu-24.04 runs the identical configuration as a control, so that any
+# failure can be attributed to Windows rather than to this particular
+# nollvm / unicorn-version combination.
+#
+# Neither leg fails the run: the point is to collect the full result table, not
+# to gate anything. Delete this file once the question is answered.
+name: win-semantics-probe
+
+on:
+  push:
+    branches: [ci/windows-semantics]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CAPSTONE_VERSION: '5.0.7'
+  LLVM_VERSION: '19'
+
+jobs:
+  probe:
+    name: probe / ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-2022, label: windows-x64, role: subject }
+          - { os: ubuntu-24.04, label: linux-x64,   role: control }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/install-triton-deps/linux
+        with:
+          python-version: '3.12'
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/install-triton-deps/windows
+        with:
+          python-version: '3.12'
+          llvm-version: ${{ env.LLVM_VERSION }}
+          capstone-version: ${{ env.CAPSTONE_VERSION }}
+
+      - name: Record the emulator versions under test
+        shell: bash
+        run: |
+          python -c "import unicorn, lief; print('unicorn', unicorn.__version__); print('lief', lief.__version__)"
+
+      - name: Normalise dependency paths (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($v in 'Z3_INCLUDE_DIRS','Z3_LIBRARIES','Z3_BIN_DIR','CAPSTONE_INCLUDE_DIRS','CAPSTONE_LIBRARIES','CAPSTONE_ROOT','CAPSTONE_BIN_DIR','LLVM_PATH') {
+            $val = [Environment]::GetEnvironmentVariable($v)
+            if ($val) { "$v=$($val -replace '\\','/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
+
+      # nollvm on both legs: LLVM has no bearing on instruction semantics, and
+      # it is not available on the Windows runner anyway (no LLVMConfig.cmake).
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DPYTHON_BINDINGS=ON \
+            -DZ3_INTERFACE=ON \
+            "-DZ3_INCLUDE_DIRS=${Z3_INCLUDE_DIRS}" \
+            "-DZ3_LIBRARIES=${Z3_LIBRARIES}" \
+            -DLLVM_INTERFACE=OFF \
+            "-DCAPSTONE_INCLUDE_DIRS=${CAPSTONE_INCLUDE_DIRS}" \
+            "-DCAPSTONE_LIBRARIES=${CAPSTONE_LIBRARIES}"
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release --parallel
+
+      - name: Confirm the gate is open
+        shell: bash
+        run: |
+          n=$(ctest --test-dir build -C Release -N | grep -c 'Test *#' || true)
+          echo "registered ctest entries: $n"
+          if [ "$n" -lt 10 ]; then
+            echo "::error::only $n tests registered - the platform gate did not open"
+            exit 1
+          fi
+
+      - name: Stage runtime DLLs (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          out=build/src/libtriton/Release
+          [ -d "$out" ] || out=build/src/libtriton
+          cp "${Z3_BIN_DIR}/libz3.dll" "$out/" || true
+          cp "${CAPSTONE_BIN_DIR}/capstone.dll" "$out/" || true
+
+      # Deliberately non-fatal: a failure here is the result, not an accident.
+      - name: Run the full suite
+        id: suite
+        shell: bash
+        env:
+          LD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}
+        run: |
+          set +e
+          ctest --test-dir build -C Release --output-on-failure --timeout 900 2>&1 | tee ctest.log
+          echo "exit=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Summarise
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## ${{ matrix.label }} (${{ matrix.role }})"
+            echo
+            echo '```'
+            grep -E 'tests passed|Total Test time' ctest.log || echo "no summary line"
+            echo '```'
+            echo
+            echo "### Failing tests"
+            echo '```'
+            sed -n '/The following tests FAILED/,$p' ctest.log | head -60 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: probe-${{ matrix.label }}
+          path: |
+            ctest.log
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: warn
