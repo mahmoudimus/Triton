@@ -57,6 +57,11 @@ jobs:
           - { os: windows-2022, label: windows-x64 }
           - { llvm: 'ON',  suffix: '' }
           - { llvm: 'OFF', suffix: '-nollvm' }
+        exclude:
+          # The LLVM Windows prebuilt ships no LLVMConfig.cmake, so LLVM lifting
+          # cannot be built there. Upstream's own windows.yml sets
+          # LLVM_INTERFACE=OFF for the same reason.
+          - { os: windows-2022, llvm: 'ON' }
 
     steps:
       - name: Checkout
@@ -240,7 +245,7 @@ jobs:
             -DZ3_INTERFACE=ON \
             "-DZ3_INCLUDE_DIRS=${Z3_INCLUDE_DIRS}" \
             "-DZ3_LIBRARIES=${Z3_LIBRARIES}" \
-            -DLLVM_INTERFACE=ON \
+            -DLLVM_INTERFACE=${{ runner.os == 'Windows' && 'OFF' || 'ON' }} \
             "-DCMAKE_PREFIX_PATH=${LLVM_PATH}" \
             "-DCAPSTONE_INCLUDE_DIRS=${CAPSTONE_INCLUDE_DIRS}" \
             "-DCAPSTONE_LIBRARIES=${CAPSTONE_LIBRARIES}" \
@@ -441,9 +446,10 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.12', '3.13']
-        llvm: ['ON', 'OFF']
+        # LLVM lifting is not buildable on Windows (no LLVMConfig.cmake in the
+        # prebuilt), so only the LLVM-free variant is produced here.
+        llvm: ['OFF']
         include:
-          - { llvm: 'ON',  suffix: '',        local: '' }
           - { llvm: 'OFF', suffix: '-nollvm', local: 'nollvm' }
     steps:
       - name: Checkout
