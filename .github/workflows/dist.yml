@@ -42,6 +42,7 @@ jobs:
   static:
     name: static / ${{ matrix.label }}${{ matrix.suffix }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -99,6 +100,21 @@ jobs:
             if ($val) { "$v=$($val -replace '\\','/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
           }
 
+      # Triton must be linked against a STATIC z3 here. Building against the dylib
+      # and swapping in libz3.a afterwards changes the linkage model underneath a
+      # library that was never linked that way, and segfaults at runtime on macOS.
+      - name: Prefer a static z3
+        shell: bash
+        run: |
+          z3root="$(dirname "$Z3_INCLUDE_DIRS")"
+          static="$(find "$z3root" -name 'libz3.a' -o -name 'z3.lib' 2>/dev/null | head -1)"
+          if [ -n "$static" ]; then
+            echo "Z3_LIBRARIES=$static" >> "$GITHUB_ENV"
+            echo "linking against static z3: $static"
+          else
+            echo "::warning::no static z3 in $z3root; the package will need libz3 at runtime"
+          fi
+
       - name: Configure
         shell: bash
         run: |
@@ -153,6 +169,7 @@ jobs:
   python:
     name: python ${{ matrix.python-version }} / ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -263,6 +280,7 @@ jobs:
   wheels-linux:
     name: wheels / manylinux-x86_64${{ matrix.suffix }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -327,6 +345,7 @@ jobs:
   wheels-macos:
     name: wheels / macos-arm64${{ matrix.suffix }} py${{ matrix.python-version }}
     runs-on: macos-15
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -387,6 +406,7 @@ jobs:
   wheels-windows:
     name: wheels / windows-x64${{ matrix.suffix }} py${{ matrix.python-version }}
     runs-on: windows-2022
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:

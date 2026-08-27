@@ -87,10 +87,24 @@ def bundle(dep_root: Path, prefix: Path, keep: tuple[str, ...]) -> list[str]:
 LIB_RE = re.compile(r'(?:[A-Za-z]:)?[/\\][^;"\'\s()]*\.(?:a|so|dylib|lib)(?:\.[0-9.]+)?')
 
 
+def lib_kind(filename: str) -> str:
+    """"static" for .a/.lib, "shared" for .so/.dylib."""
+    m = re.search(r"\.(a|lib|so|dylib)(?:\.[0-9.]+)?$", filename)
+    if not m:
+        return "unknown"
+    return "static" if m.group(1) in ("a", "lib") else "shared"
+
+
 def lib_key(filename: str) -> str:
-    """capstone from libcapstone.a, z3 from libz3.so.4.16, capstone from capstone.lib."""
+    """capstone from libcapstone.a, z3 from libz3.so.4.16, capstone from capstone.lib.
+
+    The kind is part of the key: swapping a dylib for a static archive changes the
+    linkage model of a library that was never linked that way, which segfaulted at
+    runtime on macOS when libz3.dylib was replaced by libz3.a.
+    """
     m = re.match(r"^(?:lib)?(.+?)\.(?:a|so|dylib|lib)(?:\.[0-9.]+)?$", filename)
-    return (m.group(1) if m else filename).lower()
+    name = (m.group(1) if m else filename).lower()
+    return f"{name}:{lib_kind(filename)}"
 
 
 def relocate_targets(prefix: Path, bundled: list[str]) -> tuple[list[str], list[str]]:
@@ -123,7 +137,7 @@ def relocate_targets(prefix: Path, bundled: list[str]) -> tuple[list[str], list[
                 rewritten.append(f"{Path(path).name} -> {by_key[key]}")
                 return "${_IMPORT_PREFIX}/lib/" + by_key[key]
             fell_back.append(Path(path).name)
-            return key
+            return key.split(":", 1)[0]
 
         new_text = LIB_RE.sub(repl, text)
         if new_text != text:
