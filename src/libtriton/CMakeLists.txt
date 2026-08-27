@@ -296,14 +296,22 @@ target_link_libraries(triton PUBLIC
 )
 
 if(PYTHON_BINDINGS)
-    # On macOS a Python extension must NOT link libpython: doing so records an
-    # absolute path to the building machine's framework, e.g.
+    # The two consumers of this library want opposite linkage on macOS.
+    #
+    # A redistributable Python extension must NOT link libpython: that records
+    # an absolute path to the building machine's framework, e.g.
     #   /Library/Frameworks/Python.framework/Versions/3.13/Python
-    # and the module then fails to load anywhere that path does not exist.
-    # Python3::Module is the target meant for extension modules and supplies
-    # -undefined dynamic_lookup there, leaving the symbols to the host
-    # interpreter. Other platforms still need the library itself.
-    if(NOT APPLE)
+    # and the wheel then loads only where that exact path exists.
+    #
+    # But a plain C++ program linking libtriton needs those symbols resolved at
+    # link time; without libpython it dies at startup with
+    #   dyld: symbol not found in flat namespace '_PyBool_Type'
+    # because no interpreter is present to supply them.
+    #
+    # Default to the C++-safe behaviour and let wheel builds opt out.
+    if(APPLE AND PYTHON_EXTENSION_ONLY)
+        message(STATUS "macOS: not linking libpython (redistributable extension)")
+    else()
         target_link_libraries(triton PRIVATE ${Python3_LIBRARIES})
     endif()
     target_link_libraries(triton PRIVATE Python3::Module)

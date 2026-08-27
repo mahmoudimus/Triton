@@ -136,6 +136,10 @@ class CMakeBuild(build_ext):
             raise Exception(f'Platform not supported: {platform.system()}')
 
         # Custom Python paths.
+        # A wheel is redistributable by definition; on macOS that means the
+        # extension must not bake in this machine's libpython path.
+        cmake_args += ['-DPYTHON_EXTENSION_ONLY=ON']
+
         if os.getenv('PYTHON_LIBRARIES'):
             cmake_args += ['-DPYTHON_LIBRARIES=' + os.getenv('PYTHON_LIBRARIES')]
 

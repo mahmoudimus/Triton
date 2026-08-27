@@ -31,6 +31,7 @@ option(MSVC_STATIC                       "Use statically-linked runtime library"
 option(Z3_INTERFACE                      "Use Z3 as SMT solver"                            ON)
 option(BOOST_INTERFACE                   "Use Boost as multiprecision library"             OFF)
 option(PYTHON_BINDINGS_AUTOCOMPLETE      "Generate an autocomplete stub file"              OFF)
+option(PYTHON_EXTENSION_ONLY            "Build only a redistributable Python extension"   OFF)
 
 # Define cmake dependent options
 cmake_dependent_option(BUILD_EXAMPLES   "Build the examples"            ON  BUILD_SHARED_LIBS OFF)
