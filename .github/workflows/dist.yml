@@ -456,6 +456,19 @@ jobs:
           llvm-version: ${{ env.LLVM_VERSION }}
           capstone-version: ${{ env.CAPSTONE_VERSION }}
 
+      # CMake treats backslashes as escapes, so D:\a\_temp\llvm reaches
+      # find_package(LLVM) mangled and it reports LLVMConfig.cmake missing. The
+      # static and python jobs already normalise these; the wheel job needs it too.
+      # The nollvm variant passes without this only because it never calls
+      # find_package(LLVM) at all.
+      - name: Normalise dependency paths (Windows)
+        shell: pwsh
+        run: |
+          foreach ($v in 'Z3_INCLUDE_DIRS','Z3_LIBRARIES','Z3_BIN_DIR','CAPSTONE_INCLUDE_DIRS','CAPSTONE_LIBRARIES','CAPSTONE_ROOT','CAPSTONE_BIN_DIR','LLVM_PATH') {
+            $val = [Environment]::GetEnvironmentVariable($v)
+            if ($val) { "$v=$($val -replace '\\','/')" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
+
       - name: Build wheel
         shell: pwsh
         env:
