@@ -391,8 +391,14 @@ jobs:
         env:
           DYLD_FALLBACK_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.LLVM_PATH }}/lib
         run: |
+          # --exclude libpython: the Triton module IS libtriton, and libtriton links
+          # libpython. Without this delocate treats CPython as a third-party
+          # dependency and copies the whole framework into the wheel, so the
+          # extension loads a SECOND interpreter at import time and CPython reports
+          #   SystemError: initialization of triton did not return an extension module
           for whl in wheelhouse/raw/*.whl; do
-            delocate-wheel -v -w wheelhouse/macos_arm64 "$whl"
+            delocate-wheel -v --exclude Python.framework --exclude libpython \
+              -w wheelhouse/macos_arm64 "$whl"
           done
 
       - name: Verify the wheel installs and imports
