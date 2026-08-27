@@ -404,8 +404,16 @@ jobs:
           # dependency and copies the whole framework into the wheel, so the
           # extension loads a SECOND interpreter at import time and CPython reports
           #   SystemError: initialization of triton did not return an extension module
+          # --exclude libc++ : DYLD_FALLBACK_LIBRARY_PATH points at LLVM's lib so
+          # delocate can find libLLVM, but that directory also holds LLVM's own
+          # libc++/libc++abi. Without this delocate vendors those instead of
+          # leaving the platform C++ runtime alone, and the wheel then fails with
+          #   Symbol not found: __ZNKSt9exception4whatEv
+          # The C++ runtime is a platform library; it must never be bundled.
           for whl in wheelhouse/raw/*.whl; do
-            delocate-wheel -v --exclude Python.framework --exclude libpython \
+            delocate-wheel -v \
+              --exclude Python.framework --exclude libpython \
+              --exclude libc++ --exclude libunwind \
               -w wheelhouse/macos_arm64 "$whl"
           done
 
