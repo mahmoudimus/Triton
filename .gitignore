@@ -25,3 +25,9 @@ dist/
 *.egg-info/
 wheelhouse/
 .z3-trace
+
+# Machine-local wrapper for build.ps1: holds absolute paths for one machine and
+# says so in its own header. Copy build.ps1's usage block to make your own.
+build.local.ps1
+# vcpkg's per-build install tree
+vcpkg_installed/
