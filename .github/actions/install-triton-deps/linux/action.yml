@@ -57,8 +57,6 @@ runs:
       with:
         version: ${{ inputs.llvm-version }}
         directory: ${{ runner.temp }}/llvm
-        # Without this every job in the matrix re-downloads a multi-GB toolchain.
-        cached: true
 
     - name: Install z3
       run: |

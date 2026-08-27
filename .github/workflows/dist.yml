@@ -44,6 +44,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
+      max-parallel: 6
       fail-fast: false
       matrix:
         llvm: ['ON', 'OFF']
@@ -408,6 +409,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 90
     strategy:
+      max-parallel: 6
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.12', '3.13']

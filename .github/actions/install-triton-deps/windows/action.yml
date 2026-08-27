@@ -47,12 +47,11 @@ runs:
       with:
         version: ${{ inputs.llvm-version }}
         directory: ${{ runner.temp }}/llvm
-        # Without this every job in the matrix re-downloads a multi-GB toolchain.
-        cached: true
 
     - name: Install z3
       run: |
-        Invoke-WebRequest -Uri "https://github.com/Z3Prover/z3/releases/download/z3-4.16.0/z3-4.16.0-x64-win.zip" -OutFile "z3-4.16.0-x64-win.zip"
+        curl.exe -sSL --fail --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 --max-time 600 `
+          -o "z3-4.16.0-x64-win.zip" "https://github.com/Z3Prover/z3/releases/download/z3-4.16.0/z3-4.16.0-x64-win.zip"
         unzip -q z3-4.16.0-x64-win.zip
         echo "Z3_INCLUDE_DIRS=$env:GITHUB_WORKSPACE\z3-4.16.0-x64-win\include" >> $env:GITHUB_ENV
         echo "Z3_LIBRARIES=$env:GITHUB_WORKSPACE\z3-4.16.0-x64-win\bin\libz3.lib" >> $env:GITHUB_ENV
@@ -61,7 +60,8 @@ runs:
 
     - name: Install Capstone
       run: |
-        Invoke-WebRequest -Uri "https://github.com/capstone-engine/capstone/releases/download/${{ inputs.capstone-version }}/capstone-${{ inputs.capstone-version }}.tar.xz" -OutFile "capstone-${{ inputs.capstone-version }}.tar.xz"
+        curl.exe -sSL --fail --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 --max-time 600 `
+          -o "capstone-${{ inputs.capstone-version }}.tar.xz" "https://github.com/capstone-engine/capstone/releases/download/${{ inputs.capstone-version }}/capstone-${{ inputs.capstone-version }}.tar.xz"
         tar -xf capstone-${{ inputs.capstone-version }}.tar.xz
         cd capstone-${{ inputs.capstone-version }}
         cmake -B build `
