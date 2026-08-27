@@ -43,8 +43,6 @@ jobs:
     name: static / ${{ matrix.label }}${{ matrix.suffix }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
-    # macOS is knowingly broken (wheel/module init); do not let it gate the release.
-    continue-on-error: ${{ startsWith(matrix.os, 'macos') }}
     strategy:
       max-parallel: 6
       fail-fast: false
@@ -88,6 +86,13 @@ jobs:
           capstone-version: ${{ env.CAPSTONE_VERSION }}
           capstone-shared: 'OFF'
 
+      # Windows deliberately uses the SHARED Capstone here, unlike Linux/macOS.
+      # Building Capstone static on the runner wedges for over an hour in the
+      # MSVC build -- the same configuration takes 23s on a local VS2022 box, and
+      # the runner has since moved to VS18/MSVC 14.51. Using the shared build
+      # means this job restores the same cache entry as every other Windows job
+      # and never compiles Capstone at all.
+      # Consequence: the Windows static package needs capstone.dll at runtime.
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
         uses: ./.github/actions/install-triton-deps/windows
@@ -95,7 +100,7 @@ jobs:
           python-version: '3.11'
           llvm-version: ${{ env.LLVM_VERSION }}
           capstone-version: ${{ env.CAPSTONE_VERSION }}
-          capstone-shared: 'OFF'
+          capstone-shared: 'ON'
 
       # Every later step runs under bash (present on all runners); Windows paths are
       # normalised to forward slashes so they survive bash quoting and CMake parsing.
@@ -186,7 +191,6 @@ jobs:
     name: python ${{ matrix.python-version }} / ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
-    continue-on-error: ${{ startsWith(matrix.os, 'macos') }}
     strategy:
       fail-fast: false
       matrix:
@@ -363,7 +367,6 @@ jobs:
     name: wheels / macos-arm64${{ matrix.suffix }} py${{ matrix.python-version }}
     runs-on: macos-15
     timeout-minutes: 90
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -527,7 +530,8 @@ jobs:
       needs.static.result == 'success' &&
       needs.python.result == 'success' &&
       needs['wheels-linux'].result == 'success' &&
-      needs['wheels-windows'].result == 'success'
+      needs['wheels-windows'].result == 'success' &&
+      needs['wheels-macos'].result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -581,7 +585,13 @@ jobs:
               Use `project(app C CXX)`: LLVM's CMake config runs a C compile test.
             * `triton-python-*` - the raw triton.so / triton.pyd install tree
 
-            Linux and Windows only for now. macOS artifacts are not published yet:
+            The Windows `triton-static-*` package links Capstone dynamically and
+            needs `capstone.dll` beside your binary; the Linux and macOS static
+            packages bundle Capstone and z3 and need nothing external.
+            Windows has no LLVM lifting: the LLVM Windows prebuilt ships no
+            LLVMConfig.cmake, so `liftToLLVM` is unavailable there.
+
+            macOS notes:
             the macOS wheel fails to import with "initialization of triton did not
             return an extension module", so those jobs are non-blocking until fixed.
           prerelease: true
