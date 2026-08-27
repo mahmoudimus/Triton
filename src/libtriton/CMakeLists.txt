@@ -296,7 +296,16 @@ target_link_libraries(triton PUBLIC
 )
 
 if(PYTHON_BINDINGS)
-    target_link_libraries(triton PRIVATE ${Python3_LIBRARIES})
+    # On macOS a Python extension must NOT link libpython: doing so records an
+    # absolute path to the building machine's framework, e.g.
+    #   /Library/Frameworks/Python.framework/Versions/3.13/Python
+    # and the module then fails to load anywhere that path does not exist.
+    # Python3::Module is the target meant for extension modules and supplies
+    # -undefined dynamic_lookup there, leaving the symbols to the host
+    # interpreter. Other platforms still need the library itself.
+    if(NOT APPLE)
+        target_link_libraries(triton PRIVATE ${Python3_LIBRARIES})
+    endif()
     target_link_libraries(triton PRIVATE Python3::Module)
 endif()
 
