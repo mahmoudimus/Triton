@@ -58,13 +58,28 @@ runs:
         echo "Z3_BIN_DIR=$env:GITHUB_WORKSPACE\z3-4.16.0-x64-win\bin" >> $env:GITHUB_ENV
       shell: pwsh
 
+    # Capstone is identical for every job in the matrix, so build it once and
+    # cache it. Eleven Windows jobs each pulling the same release asset is what
+    # made this step stall for an hour.
+    - name: Restore Capstone
+      id: capstone-cache
+      uses: actions/cache@v4
+      with:
+        path: capstone-${{ inputs.capstone-version }}/install
+        key: capstone-${{ inputs.capstone-version }}-shared${{ inputs.capstone-shared }}-windows-x64-v1
+
     - name: Install Capstone
+      if: steps.capstone-cache.outputs.cache-hit != 'true'
       run: |
-        curl.exe -sSL --fail --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 --max-time 600 `
+        # --max-time is per attempt, so keep it and the retry count small: with
+        # --max-time 600 --retry 5 a stalled transfer burns an hour before failing.
+        curl.exe -sSL --fail --retry 3 --retry-all-errors --retry-delay 5 --connect-timeout 20 --max-time 120 `
           -o "capstone-${{ inputs.capstone-version }}.tar.xz" "https://github.com/capstone-engine/capstone/releases/download/${{ inputs.capstone-version }}/capstone-${{ inputs.capstone-version }}.tar.xz"
         tar -xf capstone-${{ inputs.capstone-version }}.tar.xz
         cd capstone-${{ inputs.capstone-version }}
-        cmake -B build `
+        # Ninja rather than the Visual Studio generator: no MSBuild node reuse,
+        # and it is the generator every other build in this repo uses.
+        cmake -B build -G Ninja `
           -DCAPSTONE_ARCHITECTURE_DEFAULT=OFF `
           -DCAPSTONE_ARM_SUPPORT=ON `
           -DCAPSTONE_ARM64_SUPPORT=ON `
@@ -75,6 +90,10 @@ runs:
           -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release --parallel
         cmake --install build --config Release --prefix install
+      shell: pwsh
+
+    - name: Export Capstone paths
+      run: |
         echo "CAPSTONE_INCLUDE_DIRS=$env:GITHUB_WORKSPACE\capstone-${{ inputs.capstone-version }}\install\include" >> $env:GITHUB_ENV
         echo "CAPSTONE_LIBRARIES=$env:GITHUB_WORKSPACE\capstone-${{ inputs.capstone-version }}\install\lib\capstone.lib" >> $env:GITHUB_ENV
         echo "CAPSTONE_ROOT=$env:GITHUB_WORKSPACE\capstone-${{ inputs.capstone-version }}\install" >> $env:GITHUB_ENV
