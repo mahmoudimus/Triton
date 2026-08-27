@@ -585,9 +585,10 @@ jobs:
               Use `project(app C CXX)`: LLVM's CMake config runs a C compile test.
             * `triton-python-*` - the raw triton.so / triton.pyd install tree
 
-            The Windows `triton-static-*` package links Capstone dynamically and
-            needs `capstone.dll` beside your binary; the Linux and macOS static
-            packages bundle Capstone and z3 and need nothing external.
+            The Windows `triton-static-*` package needs both `capstone.dll` and
+            `libz3.dll` beside your binary: the z3 Windows release ships only an
+            import library, and Capstone is built shared there. The Linux and
+            macOS static packages bundle Capstone and z3 and need nothing external.
             Windows has no LLVM lifting: the LLVM Windows prebuilt ships no
             LLVMConfig.cmake, so `liftToLLVM` is unavailable there.
 

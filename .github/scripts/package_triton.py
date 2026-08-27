@@ -69,13 +69,17 @@ def bundle(dep_root: Path, prefix: Path, keep: tuple[str, ...]) -> list[str]:
     if inc.is_dir():
         copy_tree(inc, prefix / "include")
 
+    # Language-binding shims are not Triton's dependencies; z3 ships a Java one.
+    skip = ("libz3java", "z3java")
+
     copied: list[str] = []
     for libdir in ("lib", "lib64", "bin"):
         d = dep_root / libdir
         if not d.is_dir():
             continue
         for f in sorted(d.iterdir()):
-            if f.is_file() and f.name.lower().endswith(keep):
+            if f.is_file() and f.name.lower().endswith(keep) \
+                    and not any(k in f.name.lower() for k in skip):
                 target = prefix / "lib" / f.name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(f, target)
