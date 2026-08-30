@@ -375,6 +375,10 @@ if(PYTHON_BINDINGS)
         install(FILES $<TARGET_FILE_DIR:triton>/triton${PYTHON_SUFFIX} DESTINATION ${PYTHON_SITE_PACKAGES})
     else()
         execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "from sys import version_info; print(f'lib/python{version_info[0]}.{version_info[1]}/site-packages')" OUTPUT_VARIABLE PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE)
-        install(FILES $<TARGET_FILE_DIR:triton>/triton${PYTHON_SUFFIX} DESTINATION ${CMAKE_INSTALL_PREFIX}/${PYTHON_SITE_PACKAGES})
+        # PYTHON_SITE_PACKAGES is already relative here, and install() resolves a
+        # relative DESTINATION against CMAKE_INSTALL_PREFIX. Prefixing it again made
+        # the path absolute, which CMake >= 4 rejects under -Werror=dev and which
+        # also defeated `cmake --install --prefix <other>`.
+        install(FILES $<TARGET_FILE_DIR:triton>/triton${PYTHON_SUFFIX} DESTINATION ${PYTHON_SITE_PACKAGES})
     endif()
 endif()
