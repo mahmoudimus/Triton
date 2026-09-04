@@ -1,6 +1,7 @@
 import builtins
 import importlib.util
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -75,7 +76,7 @@ class TestConfiguredZ3Preload(unittest.TestCase):
             second.mkdir()
             builtins.Z3_LIB_DIRS = [str(first), str(second)]
 
-            with self.assertRaisesRegex(ImportError, str(first / self.loader.platform_library_name())) as error:
+            with self.assertRaisesRegex(ImportError, re.escape(str(first / self.loader.platform_library_name()))) as error:
                 self.loader.preload_configured_z3()
 
         self.assertIn(str(second / self.loader.platform_library_name()), str(error.exception))
@@ -87,7 +88,7 @@ class TestConfiguredZ3Preload(unittest.TestCase):
             builtins.Z3_LIB_DIRS = [tmp]
 
             with mock.patch.object(self.loader.ctypes, "CDLL", side_effect=OSError("bad ABI")):
-                with self.assertRaisesRegex(ImportError, str(candidate)):
+                with self.assertRaisesRegex(ImportError, re.escape(str(candidate))):
                     self.loader.preload_configured_z3()
 
 

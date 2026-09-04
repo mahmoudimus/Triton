@@ -11,6 +11,13 @@ import unittest
 
 EXAMPLE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "examples", "python")
 
+#: Per-example wall-clock cap. Several CTF write-ups are legitimately slow --
+#: google2016-unbreakable, hackcon-2016-angry-reverser and
+#: NorthSec-2018-MarsAnalytica each take over a minute on a fast machine and
+#: several times that on a CI runner -- so the default is generous. The point is
+#: to turn an indefinite hang into a named failure, not to police runtime.
+EXAMPLE_TIMEOUT = int(os.environ.get("TRITON_EXAMPLE_TIMEOUT", "900"))
+
 ARGS = {
     "small_x86-64_symbolic_emulator.py":                [os.path.join(EXAMPLE_DIR, "samples", "sample_1"), "hello"],
 }
@@ -36,7 +43,19 @@ for i, example in enumerate(itertools.chain(glob.iglob(os.path.join(EXAMPLE_DIR,
             return
 
         p = subprocess.Popen([sys.executable, example_name] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
+        try:
+            out, err = p.communicate(timeout=EXAMPLE_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            # Without a timeout a single wedged example hangs the whole suite
+            # with no output, which is indistinguishable from CI being slow.
+            # Fail loudly and name the example instead.
+            p.kill()
+            out, err = p.communicate()
+            self.fail(
+                f"{os.path.basename(example_name)} exceeded {EXAMPLE_TIMEOUT}s and was killed. "
+                f"Set TRITON_EXAMPLE_TIMEOUT to raise the limit.\n"
+                + "\n".join((str(out), str(err)))
+            )
         self.assertEqual(p.returncode, 0, "\n".join((str(out), str(err), str(p.returncode))))
 
     # Define an arguments with a default value as default value is capture at
