@@ -21,7 +21,7 @@ namespace triton {
 
       PyModuleDef tritonModuleDef = {
         PyModuleDef_HEAD_INIT,
-        "triton",
+        "_triton",
         NULL,
         -1,
         #if IS_PY3
@@ -37,12 +37,12 @@ namespace triton {
 
       /* Python entry point (Py2/3) */
       #if IS_PY3
-      PyMODINIT_FUNC PyInit_triton(void) {
+      PyMODINIT_FUNC PyInit__triton(void) {
       #else
-      PyMODINIT_FUNC inittriton(void) {
-        PyInit_triton();
+      PyMODINIT_FUNC init_triton(void) {
+        PyInit__triton();
       }
-      PyObject* PyInit_triton(void) {
+      PyObject* PyInit__triton(void) {
       #endif
         /* Init python */
         Py_Initialize();
@@ -207,4 +207,3 @@ namespace triton {
     }; /* python namespace */
   }; /* bindings namespace */
 }; /* triton namespace */
-

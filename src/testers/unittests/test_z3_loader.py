@@ -8,6 +8,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 LOADER_PATH = ROOT / "src" / "libtriton" / "bindings" / "python" / "package" / "_z3_loader.py"
+PACKAGE_PATH = ROOT / "src" / "libtriton" / "bindings" / "python" / "package" / "__init__.py"
 
 
 def load_loader():
@@ -85,6 +86,12 @@ class TestConfiguredZ3Preload(unittest.TestCase):
             with mock.patch.object(self.loader.ctypes, "CDLL", side_effect=OSError("bad ABI")):
                 with self.assertRaisesRegex(ImportError, str(candidate)):
                     self.loader.preload_configured_z3()
+
+
+class TestTritonPackageBootstrap(unittest.TestCase):
+    def test_package_preloads_z3_before_importing_native_extension(self):
+        source = PACKAGE_PATH.read_text(encoding="utf-8")
+        self.assertLess(source.index("preload_configured_z3()"), source.index("from ._triton import *"))
 
 
 if __name__ == "__main__":
