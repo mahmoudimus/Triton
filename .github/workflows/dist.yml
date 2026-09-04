@@ -269,8 +269,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
+          # The python-triton target emits a package, so the .pyd now sits in
+          # .../libtriton[/Release]/triton/. Windows resolves a .pyd's dependent
+          # DLLs from the .pyd's own directory, so stage them there.
           out=build/src/libtriton/Release
           [ -d "$out" ] || out=build/src/libtriton
+          [ -d "$out/triton" ] && out="$out/triton"
           cp "${Z3_BIN_DIR}/libz3.dll" "$out/" || true
           cp "${CAPSTONE_BIN_DIR}/capstone.dll" "$out/" || true
 

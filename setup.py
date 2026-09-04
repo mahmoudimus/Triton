@@ -202,31 +202,55 @@ class CMakeBuild(build_ext):
         if (is_cmake_true(python_autocomplete_value)):
             subprocess.check_call(['cmake', '--build', '.', '--config', CMAKE_BUILD_TYPE, '--target', 'python_autocomplete'], cwd=self.build_temp)
 
-    def copy_extension_to_source(self, ext):
-        fullname = self.get_ext_fullname(ext.name)
-        filename = self.get_ext_filename(fullname)
+    def _cmake_package_dir(self):
+        """Directory CMake wrote the `triton` package into.
 
-        if platform.system() == "Linux":
-            src_filename = os.path.join(self.build_temp + '/src/libtriton', 'triton.so')
-            dst_filename = os.path.join(self.build_lib, os.path.basename(filename))
-        elif platform.system() == "Darwin":
-            src_filename = os.path.join(self.build_temp + '/src/libtriton', 'libtriton.dylib')
-            dst_filename = os.path.join(self.build_lib, os.path.basename(filename))
-        elif platform.system() == "Windows":
-            if BUILDTOOLS == vs2022:
-                src_filename = os.path.join(self.build_temp + '/src/libtriton/' + CMAKE_BUILD_TYPE, 'triton.pyd')
-            else:
-                src_filename = os.path.join(self.build_temp + '/src/libtriton', 'triton.pyd')
-            dst_filename = os.path.join(self.build_lib, os.path.basename(filename))
-        else:
+        The `python-triton` target emits a package -- `_triton<suffix>` plus
+        `__init__.py` and `_z3_loader.py` -- rather than a flat module, because
+        the Z3 preload has to run before `_triton` is imported. Multi-config
+        generators put it under the configuration directory.
+        """
+        base = os.path.join(self.build_temp, 'src', 'libtriton')
+        if platform.system() == "Windows" and BUILDTOOLS == vs2022:
+            base = os.path.join(base, CMAKE_BUILD_TYPE)
+        return os.path.join(base, 'triton')
+
+    def copy_extension_to_source(self, ext):
+        if platform.system() not in ("Linux", "Darwin", "Windows"):
             raise Exception(f'Platform not supported: {platform.system()}')
 
+        suffix = '.pyd' if platform.system() == "Windows" else '.so'
+        pkg_dir = self._cmake_package_dir()
+        src_filename = os.path.join(pkg_dir, '_triton' + suffix)
+        if not os.path.isfile(src_filename):
+            raise Exception(
+                f'CMake did not produce {src_filename}. The python-triton target '
+                f'emits a package directory; check src/libtriton/CMakeLists.txt.'
+            )
+
+        # get_ext_filename('triton._triton') -> 'triton/_triton.<abi>.<ext>'
+        filename = self.get_ext_filename(self.get_ext_fullname(ext.name))
+        dst_filename = os.path.join(self.build_lib, filename)
+        os.makedirs(os.path.dirname(dst_filename), exist_ok=True)
         copy_file(src_filename, dst_filename, verbose=self.verbose)
+
+        # __init__.py / _z3_loader.py also come from the build tree, so a stale
+        # source copy can never diverge from what CMake actually installed.
+        for pyfile in ('__init__.py', '_z3_loader.py'):
+            src_py = os.path.join(pkg_dir, pyfile)
+            if os.path.isfile(src_py):
+                copy_file(src_py, os.path.join(self.build_lib, 'triton', pyfile),
+                          verbose=self.verbose)
 
     def copy_autocomplete(self):
         src_filename = os.path.join(self.build_temp + '/doc/triton_autocomplete', 'triton.pyi')
         if(os.path.exists(src_filename)):
-            copy_file(src_filename, self.build_lib, verbose=self.verbose)
+            # The stub describes the package's public surface, so it belongs at
+            # triton/__init__.pyi now that `triton` is a package.
+            dst_dir = os.path.join(self.build_lib, 'triton')
+            os.makedirs(dst_dir, exist_ok=True)
+            copy_file(src_filename, os.path.join(dst_dir, '__init__.pyi'),
+                      verbose=self.verbose)
 
 with open("README.md", "r") as f:
     long_description = f.read()
@@ -254,8 +278,11 @@ setup(
         'Source': 'https://github.com/jonathansalwan/Triton',
     },
     ext_modules=[
-        CMakeExtension('triton', sourcedir='.')
+        CMakeExtension('triton._triton', sourcedir='.')
     ],
+    packages=['triton'],
+    package_dir={'triton': 'src/libtriton/bindings/python/package'},
+    package_data={'triton': ['*.pyi']},
     cmdclass=dict(build_ext=CMakeBuild),
     zip_safe=False,
     install_requires=[]
