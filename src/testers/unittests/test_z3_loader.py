@@ -1,6 +1,9 @@
 import builtins
 import importlib.util
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -92,6 +95,35 @@ class TestTritonPackageBootstrap(unittest.TestCase):
     def test_package_preloads_z3_before_importing_native_extension(self):
         source = PACKAGE_PATH.read_text(encoding="utf-8")
         self.assertLess(source.index("preload_configured_z3()"), source.index("from ._triton import *"))
+
+
+class TestConfiguredNativeImport(unittest.TestCase):
+    def test_configured_library_loads_native_extension_and_solves(self):
+        if "TRITON_TEST_PACKAGE_ROOT" not in os.environ or "TRITON_TEST_Z3_DIR" not in os.environ:
+            self.skipTest("requires a staged host-Z3 package")
+        package_root = Path(os.environ["TRITON_TEST_PACKAGE_ROOT"])
+        z3_dir = os.environ["TRITON_TEST_Z3_DIR"]
+        program = """
+import builtins
+builtins.Z3_LIB_DIRS = [Z3_DIR]
+import triton
+context = triton.TritonContext(triton.ARCH.X86_64)
+context.setSolver(triton.SOLVER.Z3)
+variable = context.newSymbolicVariable(64, 'a')
+ast = context.getAstContext()
+model = context.getModel(ast.equal(ast.variable(variable), ast.bv(0xcc99, 64)))
+print('TRITON_MODEL', model[variable.getId()].getValue())
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", "Z3_DIR = " + repr(z3_dir) + "\n" + program],
+            env={**os.environ, "PYTHONPATH": str(package_root)},
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("TRITON_MODEL 52377", result.stdout)
 
 
 if __name__ == "__main__":
