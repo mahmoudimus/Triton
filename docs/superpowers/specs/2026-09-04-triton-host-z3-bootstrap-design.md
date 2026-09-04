@@ -52,4 +52,13 @@ existing platform library; relative directories are rejected; missing libraries
 report every attempted candidate; and the preload uses the chosen absolute path
 and `RTLD_GLOBAL` where available. A macOS integration test builds the host-Z3
 extension, configures `Z3_LIB_DIRS`, imports `triton`, and solves a constrained
-model. The existing IDA console probe remains the final runtime gate.
+model.
+
+## Verified runtime evidence
+
+On 2026-09-04, after restarting IDA 9.4, its Python console set
+`builtins.Z3_LIB_DIRS = ['/Users/mahmoud/.d810-speedups/z3/lib']` before its first
+Triton import. `triton.__file__` was the installed package initializer
+`site-packages/triton/__init__.py`, rather than the legacy flat extension, and a
+Z3 model constrained to `0xcc99` returned `52377`. This proves the configured
+Python preload path in the real IDA process.
