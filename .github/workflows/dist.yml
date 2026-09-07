@@ -281,6 +281,10 @@ jobs:
       - name: Test
         shell: bash
         env:
+          # Ninja emits the package here on every platform. Enable the native
+          # host-Z3 integration test, which otherwise silently skips.
+          TRITON_TEST_PACKAGE_ROOT: ${{ github.workspace }}/build/src/libtriton
+          TRITON_TEST_Z3_DIR: ${{ runner.os == 'Windows' && env.Z3_BIN_DIR || env.Z3_LIB_DIR }}
           LD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.BITWUZLA_LIB_DIR }}
           DYLD_LIBRARY_PATH: ${{ env.Z3_LIB_DIR }}:${{ env.CAPSTONE_LIB_DIR }}:${{ env.BITWUZLA_LIB_DIR }}
         run: ctest --test-dir build -C Release --output-on-failure

@@ -64,6 +64,7 @@ runs:
         unzip -q z3-4.16.0-x64-glibc-2.39.zip
         echo "Z3_INCLUDE_DIRS=$GITHUB_WORKSPACE/z3-4.16.0-x64-glibc-2.39/include" >> $GITHUB_ENV
         echo "Z3_LIBRARIES=$GITHUB_WORKSPACE/z3-4.16.0-x64-glibc-2.39/bin/libz3.so" >> $GITHUB_ENV
+        echo "Z3_LIB_DIR=$GITHUB_WORKSPACE/z3-4.16.0-x64-glibc-2.39/bin" >> $GITHUB_ENV
       shell: bash
 
     - name: Install Bitwuzla
