@@ -34,7 +34,8 @@ jobs:
 
       - name: Run tests
         run: |
-          Copy-Item "${{ env.Z3_BIN_DIR }}\libz3.dll" "build\src\libtriton\Release\"
-          Copy-Item "${{ env.CAPSTONE_BIN_DIR }}\capstone.dll" "build\src\libtriton\Release\"
+          # Stage dependencies beside the native extension inside the package.
+          Copy-Item "${{ env.Z3_BIN_DIR }}\libz3.dll" "build\src\libtriton\Release\triton\"
+          Copy-Item "${{ env.CAPSTONE_BIN_DIR }}\capstone.dll" "build\src\libtriton\Release\triton\"
           ctest --test-dir build --output-on-failure -C Release
         shell: pwsh
