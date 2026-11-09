@@ -464,6 +464,9 @@ namespace triton {
           //! The ADD semantics.
           void add_s(triton::arch::Instruction& inst);
 
+          //! The ADOX semantics.
+          void adox_s(triton::arch::Instruction& inst);
+
           //! The AND semantics.
           void and_s(triton::arch::Instruction& inst);
 
@@ -514,6 +517,9 @@ namespace triton {
 
           //! The BTS semantics.
           void bts_s(triton::arch::Instruction& inst);
+
+          //! The BZHI semantics.
+          void bzhi_s(triton::arch::Instruction& inst);
 
           //! The CALL semantics.
           void call_s(triton::arch::Instruction& inst);
@@ -764,6 +770,12 @@ namespace triton {
           //! The LOOP semantics.
           void loop_s(triton::arch::Instruction& inst);
 
+          //! The LOOPE semantics.
+          void loope_s(triton::arch::Instruction& inst);
+
+          //! The LOOPNE semantics.
+          void loopne_s(triton::arch::Instruction& inst);
+
           //! The LZCNT semantics.
           void lzcnt_s(triton::arch::Instruction& inst);
 
@@ -964,6 +976,12 @@ namespace triton {
 
           //! The PCMPGTW semantics.
           void pcmpgtw_s(triton::arch::Instruction& inst);
+
+          //! The PDEP semantics.
+          void pdep_s(triton::arch::Instruction& inst);
+
+          //! The PEXT semantics.
+          void pext_s(triton::arch::Instruction& inst);
 
           //! The PEXTRB semantics.
           void pextrb_s(triton::arch::Instruction& inst);
@@ -1376,6 +1394,9 @@ namespace triton {
           //! The VEXTRACTI128 semantics.
           void vextracti128_s(triton::arch::Instruction& inst);
 
+          //! The VINSERTF128 and VINSERTI128 semantics.
+          void vinsertf128_s(triton::arch::Instruction& inst);
+
           //! The VMOVD semantics.
           void vmovd_s(triton::arch::Instruction& inst);
 
@@ -1552,6 +1573,12 @@ namespace triton {
 
           //! The VXORPS semantics.
           void vxorps_s(triton::arch::Instruction& inst);
+
+          //! The VZEROALL semantics.
+          void vzeroall_s(triton::arch::Instruction& inst);
+
+          //! The VZEROUPPER semantics.
+          void vzeroupper_s(triton::arch::Instruction& inst);
 
           //! The WAIT semantics.
           void wait_s(triton::arch::Instruction& inst);
