@@ -37,6 +37,7 @@ AAS                          |            | ASCII Adjust AL After Subtraction
 ADC                          |            | Add with Carry
 ADCX                         | adx        | Unsigned Integer Addition of Two Operands with Carry Flag
 ADD                          |            | Add
+ADOX                         | adx        | Unsigned Integer Addition of Two Operands with Overflow Flag
 AND                          |            | Logical AND
 ANDN                         | bmi1       | Logical AND NOT
 ANDNPD                       | sse2       | Bitwise Logical AND NOT of Packed Double-Precision Floating-Point Values
@@ -54,6 +55,7 @@ BT                           |            | Bit Test
 BTC                          |            | Bit Test and Complement
 BTR                          |            | Bit Test and Reset
 BTS                          |            | Bit Test and Set
+BZHI                         | bmi2       | Zero High Bits Starting with Specified Bit Position
 CALL                         |            | Call Procedure
 CBW                          |            | Convert byte (al) to word (ax)
 CDQ                          |            | Convert dword (eax) to qword (edx:eax)
@@ -133,6 +135,8 @@ LODSD                        |            | Load doubleword at address
 LODSQ                        |            | Load quadword at address
 LODSW                        |            | Load word at address
 LOOP                         |            | Loop According to ECX Counter
+LOOPE                        |            | Loop According to ECX Counter while ZF is set
+LOOPNE                       |            | Loop According to ECX Counter while ZF is clear
 LZCNT                        |            | Count the Number of Leading Zero Bits
 FXRSTOR                      | sse1       | Restore the x87 FPU, MMX, XMM, and MXCSR register state from m512byte
 FXRSTOR64                    | sse1       | Restore the x87 FPU, MMX, XMM, and MXCSR register state from m512byte (REX.W = 1)
@@ -204,6 +208,8 @@ PCMPEQW                      | mmx/sse2   | Compare Packed Data for Equal (words
 PCMPGTB                      | mmx/sse2   | Compare Packed Data for Greater Than (bytes)
 PCMPGTD                      | mmx/sse2   | Compare Packed Data for Greater Than (dwords)
 PCMPGTW                      | mmx/sse2   | Compare Packed Data for Greater Than (words)
+PDEP                         | bmi2       | Parallel Bits Deposit
+PEXT                         | bmi2       | Parallel Bits Extract
 PEXTRB                       | sse4.1     | Extract Byte
 PEXTRD                       | sse4.1     | Extract Dword
 PEXTRQ                       | sse4.1     | Extract Qword
@@ -347,6 +353,8 @@ UNPCKLPS                     | sse1       | Unpack and Interleave Low Packed Sin
 VERR                         |            | Set ZF=1 if segment specified with r/m16 can be read
 VERW                         |            | Set ZF=1 if segment specified with r/m16 can be written
 VEXTRACTI128                 | avx2       | VEX Extract Packed Integer Values
+VINSERTF128                  | avx        | VEX Insert Packed Floating-Point Values
+VINSERTI128                  | avx2       | VEX Insert Packed Integer Values
 VMOVD                        | avx        | VEX Move Doubleword
 VMOVDQA                      | avx        | VEX Move aligned packed integer values
 VMOVDQU                      | avx        | VEX Move unaligned packed integer values
@@ -406,6 +414,8 @@ VPUNPCKLQDQ                  | avx/avx2   | VEX Unpack Low Data (Unpack and inte
 VPUNPCKLWD                   | avx/avx2   | VEX Unpack Low Data (Unpack and interleave low-order words)
 VPXOR                        | avx/avx2   | VEX Logical XOR
 VXORPS                       | avx        | VEX Bitwise Logical XOR for Single-Precision Floating-Point Values
+VZEROALL                     | avx        | VEX Zero All YMM Registers
+VZEROUPPER                   | avx        | VEX Zero Upper Bits of YMM Registers
 WAIT                         |            | Wait
 WBINVD                       |            | Write Back and Invalidate Cache
 XADD                         |            | Exchange and Add
@@ -454,6 +464,7 @@ namespace triton {
           case ID_INS_ADC:            this->adc_s(inst);          break;
           case ID_INS_ADCX:           this->adcx_s(inst);         break;
           case ID_INS_ADD:            this->add_s(inst);          break;
+          case ID_INS_ADOX:           this->adox_s(inst);         break;
           case ID_INS_AND:            this->and_s(inst);          break;
           case ID_INS_ANDN:           this->andn_s(inst);         break;
           case ID_INS_ANDNPD:         this->andnpd_s(inst);       break;
@@ -471,6 +482,7 @@ namespace triton {
           case ID_INS_BTC:            this->btc_s(inst);          break;
           case ID_INS_BTR:            this->btr_s(inst);          break;
           case ID_INS_BTS:            this->bts_s(inst);          break;
+          case ID_INS_BZHI:           this->bzhi_s(inst);         break;
           case ID_INS_CALL:           this->call_s(inst);         break;
           case ID_INS_CBW:            this->cbw_s(inst);          break;
           case ID_INS_CDQ:            this->cdq_s(inst);          break;
@@ -554,6 +566,8 @@ namespace triton {
           case ID_INS_LODSQ:          this->lodsq_s(inst);        break;
           case ID_INS_LODSW:          this->lodsw_s(inst);        break;
           case ID_INS_LOOP:           this->loop_s(inst);         break;
+          case ID_INS_LOOPE:          this->loope_s(inst);        break;
+          case ID_INS_LOOPNE:         this->loopne_s(inst);       break;
           case ID_INS_LZCNT:          this->lzcnt_s(inst);        break;
           case ID_INS_INT3:           this->int3_s(inst);         break;
           case ID_INS_MFENCE:         this->mfence_s(inst);       break;
@@ -621,6 +635,8 @@ namespace triton {
           case ID_INS_PCMPGTB:        this->pcmpgtb_s(inst);      break;
           case ID_INS_PCMPGTD:        this->pcmpgtd_s(inst);      break;
           case ID_INS_PCMPGTW:        this->pcmpgtw_s(inst);      break;
+          case ID_INS_PDEP:           this->pdep_s(inst);         break;
+          case ID_INS_PEXT:           this->pext_s(inst);         break;
           case ID_INS_PEXTRB:         this->pextrb_s(inst);       break;
           case ID_INS_PEXTRD:         this->pextrd_s(inst);       break;
           case ID_INS_PEXTRQ:         this->pextrq_s(inst);       break;
@@ -764,6 +780,8 @@ namespace triton {
           case ID_INS_VERR:           this->verr_s(inst);         break;
           case ID_INS_VERW:           this->verw_s(inst);         break;
           case ID_INS_VEXTRACTI128:   this->vextracti128_s(inst); break;
+          case ID_INS_VINSERTF128:    this->vinsertf128_s(inst);  break;
+          case ID_INS_VINSERTI128:    this->vinsertf128_s(inst);  break;
           case ID_INS_VMOVD:          this->vmovd_s(inst);        break;
           case ID_INS_VMOVDQA:        this->vmovdqa_s(inst);      break;
           case ID_INS_VMOVDQU:        this->vmovdqu_s(inst);      break;
@@ -823,6 +841,8 @@ namespace triton {
           case ID_INS_VPUNPCKLWD:     this->vpunpcklwd_s(inst);   break;
           case ID_INS_VPXOR:          this->vpxor_s(inst);        break;
           case ID_INS_VXORPS:         this->vxorps_s(inst);       break;
+          case ID_INS_VZEROALL:       this->vzeroall_s(inst);     break;
+          case ID_INS_VZEROUPPER:     this->vzeroupper_s(inst);   break;
           case ID_INS_WAIT:           this->wait_s(inst);         break;
           case ID_INS_WBINVD:         this->wbinvd_s(inst);       break;
           case ID_INS_XADD:           this->xadd_s(inst);         break;
@@ -2516,9 +2536,10 @@ namespace triton {
          * pf is set to one if there is an even number of bit set to 1 in the least
          * significant byte of the result.
          */
+        auto ref  = this->astCtxt->reference(parent);
         auto node = this->astCtxt->bv(1, 1);
-        for (triton::uint32 counter = 0; counter <= triton::bitsize::byte-1; counter++) {
-          node = this->astCtxt->bvxor(node, this->astCtxt->extract(counter, counter, this->astCtxt->reference(parent)));
+        for (triton::uint32 counter = low; counter <= high; counter++) {
+          node = this->astCtxt->bvxor(node, this->astCtxt->extract(counter, counter, ref));
         }
 
         /* Create the symbolic expression */
@@ -2544,9 +2565,10 @@ namespace triton {
          * Create the semantics.
          * pf if op2 != 0
          */
+        auto ref   = this->astCtxt->reference(parent);
         auto node1 = this->astCtxt->bv(1, 1);
-        for (triton::uint32 counter = 0; counter <= triton::bitsize::byte-1; counter++) {
-          node1 = this->astCtxt->bvxor(node1, this->astCtxt->extract(counter, counter, this->astCtxt->reference(parent)));
+        for (triton::uint32 counter = low; counter <= high; counter++) {
+          node1 = this->astCtxt->bvxor(node1, this->astCtxt->extract(counter, counter, ref));
         }
 
         auto node2 = this->astCtxt->ite(
@@ -3098,6 +3120,51 @@ namespace triton {
       }
 
 
+      void x86Semantics::adox_s(triton::arch::Instruction& inst) {
+        auto& dst    = inst.operands[0];
+        auto& src    = inst.operands[1];
+        auto  of     = triton::arch::OperandWrapper(this->architecture->getRegister(ID_REG_X86_OF));
+        auto  bvSize = dst.getBitSize();
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->getOperandAst(inst, dst);
+        auto op2 = this->symbolicEngine->getOperandAst(inst, src);
+        auto op3 = this->symbolicEngine->getOperandAst(inst, of);
+
+        /* Create the semantics */
+        auto node = this->astCtxt->bvadd(this->astCtxt->bvadd(op1, op2), this->astCtxt->zx(bvSize-1, op3));
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "ADOX operation");
+
+        /* Spread taint */
+        expr->isTainted = this->taintEngine->taintUnion(dst, src);
+        expr->isTainted = this->taintEngine->taintUnion(dst, of);
+
+        /*
+         * Update symbolic flags: OF receives the unsigned carry out, as CF does for ADCX.
+         * of = MSB((op1 & op2) ^ ((op1 ^ op2 ^ result) & (op1 ^ op2)))
+         */
+        auto ofNode = this->astCtxt->extract(bvSize-1, bvSize-1,
+                        this->astCtxt->bvxor(
+                          this->astCtxt->bvand(op1, op2),
+                          this->astCtxt->bvand(
+                            this->astCtxt->bvxor(
+                              this->astCtxt->bvxor(op1, op2),
+                              this->astCtxt->extract(dst.getHigh(), dst.getLow(), this->astCtxt->reference(expr))
+                            ),
+                            this->astCtxt->bvxor(op1, op2)
+                          )
+                        )
+                      );
+        auto ofExpr = this->symbolicEngine->createSymbolicExpression(inst, ofNode, this->architecture->getRegister(ID_REG_X86_OF), "Overflow flag");
+        ofExpr->isTainted = this->taintEngine->setTaintRegister(this->architecture->getRegister(ID_REG_X86_OF), expr->isTainted);
+
+        /* Update the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+
       void x86Semantics::and_s(triton::arch::Instruction& inst) {
         auto& dst = inst.operands[0];
         auto& src = inst.operands[1];
@@ -3146,7 +3213,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "ANDN operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         this->clearFlag_s(inst, this->architecture->getRegister(ID_REG_X86_CF), "Clears carry flag");
         this->clearFlag_s(inst, this->architecture->getRegister(ID_REG_X86_OF), "Clears overflow flag");
@@ -3274,7 +3342,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "BEXTR operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update symbolic flags */
         this->clearFlag_s(inst, this->architecture->getRegister(ID_REG_X86_CF), "Clears carry flag");
@@ -4008,6 +4077,55 @@ namespace triton {
         this->undefined_s(inst, this->architecture->getRegister(ID_REG_X86_OF));
         this->undefined_s(inst, this->architecture->getRegister(ID_REG_X86_PF));
         this->undefined_s(inst, this->architecture->getRegister(ID_REG_X86_SF));
+
+        /* Update the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+
+      void x86Semantics::bzhi_s(triton::arch::Instruction& inst) {
+        auto& dst    = inst.operands[0];
+        auto& src1   = inst.operands[1];
+        auto& src2   = inst.operands[2];
+        auto  bvSize = src1.getBitSize();
+        auto  cf     = this->architecture->getRegister(ID_REG_X86_CF);
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->getOperandAst(inst, src1);
+        auto op2 = this->symbolicEngine->getOperandAst(inst, src2);
+
+        /* Create the semantics: clear the bits of op1 from the index in op2[7:0] upward */
+        auto index = this->astCtxt->zx(bvSize - triton::bitsize::byte, this->astCtxt->extract(7, 0, op2));
+        auto node  = this->astCtxt->ite(
+                       this->astCtxt->bvult(index, this->astCtxt->bv(bvSize, bvSize)),
+                       this->astCtxt->bvand(
+                         op1,
+                         this->astCtxt->bvsub(
+                           this->astCtxt->bvshl(this->astCtxt->bv(1, bvSize), index),
+                           this->astCtxt->bv(1, bvSize)
+                         )
+                       ),
+                       op1
+                     );
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "BZHI operation");
+
+        /* Spread taint */
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
+
+        /* Update symbolic flags: CF is set when the index is beyond the operand size */
+        auto cfNode = this->astCtxt->ite(
+                        this->astCtxt->bvugt(index, this->astCtxt->bv(bvSize - 1, bvSize)),
+                        this->astCtxt->bvtrue(),
+                        this->astCtxt->bvfalse()
+                      );
+        auto cfExpr = this->symbolicEngine->createSymbolicExpression(inst, cfNode, cf, "Carry flag");
+        cfExpr->isTainted = this->taintEngine->setTaintRegister(cf, this->taintEngine->isTainted(src2));
+        this->clearFlag_s(inst, this->architecture->getRegister(ID_REG_X86_OF), "Clears overflow flag");
+        this->sf_s(inst, expr, dst);
+        this->zf_s(inst, expr, dst);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -8412,6 +8530,92 @@ namespace triton {
       }
 
 
+      void x86Semantics::loope_s(triton::arch::Instruction& inst) {
+        auto  count = triton::arch::OperandWrapper(this->architecture->getParentRegister(ID_REG_X86_CX));
+        auto  zf    = triton::arch::OperandWrapper(this->architecture->getRegister(ID_REG_X86_ZF));
+        auto  pc    = triton::arch::OperandWrapper(this->architecture->getProgramCounter());
+        auto& src   = inst.operands[0];
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->getOperandAst(inst, src);
+        auto op2 = this->symbolicEngine->getOperandAst(inst, count);
+        auto op3 = this->symbolicEngine->getOperandAst(inst, zf);
+
+        /* Create the semantics */
+        auto node1 = this->astCtxt->bvsub(op2, this->astCtxt->bv(1, op2->getBitvectorSize()));
+
+        /* Create symbolic expression */
+        auto expr1 = this->symbolicEngine->createSymbolicExpression(inst, node1, count, "LOOPE counter operation");
+
+        /* Create the semantics */
+        auto node2 = this->astCtxt->ite(
+                       this->astCtxt->land(
+                         this->astCtxt->lnot(this->astCtxt->equal(node1, this->astCtxt->bv(0, node1->getBitvectorSize()))),
+                         this->astCtxt->equal(op3, this->astCtxt->bvtrue())
+                       ),
+                       op1,
+                       this->astCtxt->bv(inst.getNextAddress(), pc.getBitSize())
+                     );
+
+        /* Create symbolic expression */
+        auto expr2 = this->symbolicEngine->createSymbolicExpression(inst, node2, pc, "Program Counter");
+
+        /* Set condition flag */
+        if (!node1->evaluate().is_zero() && !op3->evaluate().is_zero())
+          inst.setConditionTaken(true);
+
+        /* Spread taint */
+        expr2->isTainted = this->taintEngine->taintAssignment(pc, count);
+        expr2->isTainted = this->taintEngine->taintUnion(pc, zf);
+
+        /* Create the path constraint */
+        this->symbolicEngine->pushPathConstraint(inst, expr2);
+      }
+
+
+      void x86Semantics::loopne_s(triton::arch::Instruction& inst) {
+        auto  count = triton::arch::OperandWrapper(this->architecture->getParentRegister(ID_REG_X86_CX));
+        auto  zf    = triton::arch::OperandWrapper(this->architecture->getRegister(ID_REG_X86_ZF));
+        auto  pc    = triton::arch::OperandWrapper(this->architecture->getProgramCounter());
+        auto& src   = inst.operands[0];
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->getOperandAst(inst, src);
+        auto op2 = this->symbolicEngine->getOperandAst(inst, count);
+        auto op3 = this->symbolicEngine->getOperandAst(inst, zf);
+
+        /* Create the semantics */
+        auto node1 = this->astCtxt->bvsub(op2, this->astCtxt->bv(1, op2->getBitvectorSize()));
+
+        /* Create symbolic expression */
+        auto expr1 = this->symbolicEngine->createSymbolicExpression(inst, node1, count, "LOOPNE counter operation");
+
+        /* Create the semantics */
+        auto node2 = this->astCtxt->ite(
+                       this->astCtxt->land(
+                         this->astCtxt->lnot(this->astCtxt->equal(node1, this->astCtxt->bv(0, node1->getBitvectorSize()))),
+                         this->astCtxt->equal(op3, this->astCtxt->bvfalse())
+                       ),
+                       op1,
+                       this->astCtxt->bv(inst.getNextAddress(), pc.getBitSize())
+                     );
+
+        /* Create symbolic expression */
+        auto expr2 = this->symbolicEngine->createSymbolicExpression(inst, node2, pc, "Program Counter");
+
+        /* Set condition flag */
+        if (!node1->evaluate().is_zero() && op3->evaluate().is_zero())
+          inst.setConditionTaken(true);
+
+        /* Spread taint */
+        expr2->isTainted = this->taintEngine->taintAssignment(pc, count);
+        expr2->isTainted = this->taintEngine->taintUnion(pc, zf);
+
+        /* Create the path constraint */
+        this->symbolicEngine->pushPathConstraint(inst, expr2);
+      }
+
+
       void x86Semantics::lzcnt_s(triton::arch::Instruction& inst) {
         auto& dst     = inst.operands[0];
         auto& src     = inst.operands[1];
@@ -10767,6 +10971,76 @@ namespace triton {
 
         /* Apply the taint */
         expr->isTainted = this->taintEngine->taintUnion(dst, src);
+
+        /* Update the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+
+      void x86Semantics::pdep_s(triton::arch::Instruction& inst) {
+        auto& dst    = inst.operands[0];
+        auto& src1   = inst.operands[1];
+        auto& src2   = inst.operands[2];
+        auto  bvSize = src1.getBitSize();
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->getOperandAst(inst, src1);
+        auto op2 = this->symbolicEngine->getOperandAst(inst, src2);
+
+        /*
+         * Create the semantics: the low bits of op1 go, in order, to the positions of the bits set in the
+         * mask op2. count is the number of mask bits below the current position.
+         */
+        std::list<triton::ast::SharedAbstractNode> bits;
+        auto count = this->astCtxt->bv(0, bvSize);
+        for (triton::uint32 index = 0; index < bvSize; index++) {
+          auto maskBit = this->astCtxt->extract(index, index, op2);
+          bits.push_front(this->astCtxt->bvand(maskBit, this->astCtxt->extract(0, 0, this->astCtxt->bvlshr(op1, count))));
+          count = this->astCtxt->bvadd(count, this->astCtxt->zx(bvSize - 1, maskBit));
+        }
+        auto node = this->astCtxt->concat(bits);
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "PDEP operation");
+
+        /* Spread taint */
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
+
+        /* Update the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+
+      void x86Semantics::pext_s(triton::arch::Instruction& inst) {
+        auto& dst    = inst.operands[0];
+        auto& src1   = inst.operands[1];
+        auto& src2   = inst.operands[2];
+        auto  bvSize = src1.getBitSize();
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->getOperandAst(inst, src1);
+        auto op2 = this->symbolicEngine->getOperandAst(inst, src2);
+
+        /*
+         * Create the semantics: the bits of op1 at the positions of the bits set in the mask op2 go, in order,
+         * to the low bits of the result. count is the number of mask bits below the current position.
+         */
+        auto node  = this->astCtxt->bv(0, bvSize);
+        auto count = this->astCtxt->bv(0, bvSize);
+        for (triton::uint32 index = 0; index < bvSize; index++) {
+          auto maskBit = this->astCtxt->extract(index, index, op2);
+          auto bit     = this->astCtxt->bvand(maskBit, this->astCtxt->extract(index, index, op1));
+          node  = this->astCtxt->bvor(node, this->astCtxt->bvshl(this->astCtxt->zx(bvSize - 1, bit), count));
+          count = this->astCtxt->bvadd(count, this->astCtxt->zx(bvSize - 1, maskBit));
+        }
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "PEXT operation");
+
+        /* Spread taint */
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -13956,12 +14230,7 @@ namespace triton {
 
       void x86Semantics::push_s(triton::arch::Instruction& inst) {
         auto& src           = inst.operands[0];
-        auto stack          = this->architecture->getStackPointer();
-        triton::uint32 size = stack.getSize();
-
-        /* If it's an immediate source, the memory access is always based on the arch size */
-        if (src.getType() != triton::arch::OP_IMM)
-          size = src.getSize();
+        triton::uint32 size = src.getSize();
 
         /* Create symbolic operands */
         auto op1 = this->symbolicEngine->getOperandAst(inst, src);
@@ -14272,7 +14541,6 @@ namespace triton {
         /* Create symbolic operands */
         auto op1    = this->symbolicEngine->getOperandAst(inst, dst);
         auto op2    = this->symbolicEngine->getOperandAst(inst, src);
-        auto op2bis = this->symbolicEngine->getOperandAst(src);
         auto op3    = this->symbolicEngine->getOperandAst(inst, srcCf);
 
         switch (dst.getBitSize()) {
@@ -14330,8 +14598,8 @@ namespace triton {
         expr2->isTainted = this->taintEngine->taintUnion(dst, srcCf);
 
         /* Update symbolic flags */
-        this->cfRcl_s(inst, expr2, node1, op2bis);
-        this->ofRol_s(inst, expr2, dst, op2bis); /* Same as ROL */
+        this->cfRcl_s(inst, expr2, node1, op2);
+        this->ofRol_s(inst, expr2, dst, op2); /* Same as ROL */
 
         /* Tag undefined flags */
         if (op2->evaluate() > 1) {
@@ -14608,7 +14876,7 @@ namespace triton {
         expr->isTainted = this->taintEngine->taintUnion(dst, src);
 
         /* Update symbolic flags */
-        this->cfRor_s(inst, expr, dst, op2);
+        this->cfRor_s(inst, expr, dst, op2bis);
         this->ofRor_s(inst, expr, dst, op2bis);
 
         /* Tag undefined flags */
@@ -16549,6 +16817,37 @@ namespace triton {
       }
 
 
+      void x86Semantics::vinsertf128_s(triton::arch::Instruction& inst) {
+        auto& dst  = inst.operands[0];
+        auto& src1 = inst.operands[1];
+        auto& src2 = inst.operands[2];
+        auto& src3 = inst.operands[3];
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->getOperandAst(inst, src1);
+        auto op2 = this->symbolicEngine->getOperandAst(inst, src2);
+        auto op3 = this->symbolicEngine->getOperandAst(inst, src3);
+
+        /* Create the semantics */
+        triton::ast::SharedAbstractNode node;
+        if (op3->evaluate() & 0b00000001) {
+          node = this->astCtxt->concat(op2, this->astCtxt->extract(127, 0, op1));
+        } else {
+          node = this->astCtxt->concat(this->astCtxt->extract(255, 128, op1), op2);
+        }
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VINSERT128 operation");
+
+        /* Spread taint */
+        this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted = this->taintEngine->taintUnion(dst, src2);
+
+        /* Update the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+
       void x86Semantics::vmovd_s(triton::arch::Instruction& inst) {
         auto& dst = inst.operands[0];
         auto& src = inst.operands[1];
@@ -16701,7 +17000,8 @@ namespace triton {
           auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VMOVSD operation");
 
           /* Spread taint */
-          expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+          expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+          expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
         }
 
         /* Update the symbolic control flow */
@@ -16783,7 +17083,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPACKUSWB operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -16828,7 +17129,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPACKSSDW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -16873,7 +17175,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPACKSSWB operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -16904,7 +17207,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPADDB operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -16935,7 +17239,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPADDD operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -16966,7 +17271,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPADDW operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -16989,7 +17295,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPAND operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17012,7 +17319,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPANDN operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17075,7 +17383,8 @@ namespace triton {
         } else if (taint.size() == 1) {
           expr->isTainted = this->taintEngine->taintAssignment(dst, taint[0]);
         } else {
-          expr->isTainted = this->taintEngine->taintAssignment(dst, taint[0]) | this->taintEngine->taintUnion(dst, taint[0]);
+          expr->isTainted  = this->taintEngine->taintAssignment(dst, taint[0]);
+          expr->isTainted |= this->taintEngine->taintUnion(dst, taint[1]);
         }
 
         /* Update the symbolic control flow */
@@ -17298,7 +17607,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPCMPEQB operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17336,7 +17646,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPCMPEQD operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17374,7 +17685,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPCMPEQQ operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17412,7 +17724,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPCMPEQW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17450,7 +17763,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPCMPGTB operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17488,7 +17802,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPCMPGTD operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17526,7 +17841,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPCMPGTW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17568,7 +17884,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPMADDWD operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17675,7 +17992,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPMINUB operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17709,7 +18027,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPMULHW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17743,7 +18062,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPMULLW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17766,7 +18086,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPOR operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -17978,7 +18299,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSLLDQ operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18022,7 +18344,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSLLW operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18066,7 +18389,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSRAD operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18110,7 +18434,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSRAW operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18155,7 +18480,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSRLDQ operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18199,7 +18525,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSRLW operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18234,7 +18561,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSUBB operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18269,7 +18597,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSUBD operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18304,7 +18633,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSUBQ operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18339,7 +18669,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPSUBW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18409,7 +18740,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKHBW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18446,7 +18778,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKHDQ operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18483,7 +18816,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKHQDQ operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18520,7 +18854,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKHWD operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18557,7 +18892,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKLBW operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18594,7 +18930,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKLDQ operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18631,7 +18968,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKLQDQ operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18668,7 +19006,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPUNPCKLWD operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18691,7 +19030,8 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VPXOR operation");
 
         /* Spread taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);
@@ -18714,7 +19054,45 @@ namespace triton {
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VXORPS operation");
 
         /* Apply the taint */
-        expr->isTainted = this->taintEngine->taintAssignment(dst, src1) | this->taintEngine->taintUnion(dst, src2);
+        expr->isTainted  = this->taintEngine->taintAssignment(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
+
+        /* Update the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+
+      void x86Semantics::vzeroall_s(triton::arch::Instruction& inst) {
+        /* ZMM0-15 in 64-bit mode, YMM0-7 otherwise */
+        auto is64bits = this->architecture->getArchitecture() == triton::arch::architecture_e::ARCH_X86_64;
+        auto first    = is64bits ? ID_REG_X86_ZMM0 : ID_REG_X86_YMM0;
+        auto count    = is64bits ? 16u : 8u;
+
+        for (triton::uint32 i = 0; i < count; i++) {
+          auto dst  = triton::arch::OperandWrapper(this->architecture->getRegister(static_cast<triton::arch::register_e>(first + i)));
+          auto node = this->astCtxt->bv(0, dst.getBitSize());
+          this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VZEROALL operation");
+          this->taintEngine->setTaint(dst, false);
+        }
+
+        /* Update the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+
+      void x86Semantics::vzeroupper_s(triton::arch::Instruction& inst) {
+        /* ZMM0-15 in 64-bit mode, YMM0-7 otherwise */
+        auto is64bits = this->architecture->getArchitecture() == triton::arch::architecture_e::ARCH_X86_64;
+        auto first    = is64bits ? ID_REG_X86_ZMM0 : ID_REG_X86_YMM0;
+        auto count    = is64bits ? 16u : 8u;
+
+        for (triton::uint32 i = 0; i < count; i++) {
+          auto dst  = triton::arch::OperandWrapper(this->architecture->getRegister(static_cast<triton::arch::register_e>(first + i)));
+          auto op   = this->symbolicEngine->getOperandAst(inst, dst);
+          auto node = this->astCtxt->zx(dst.getBitSize() - 128, this->astCtxt->extract(127, 0, op));
+          auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "VZEROUPPER operation");
+          expr->isTainted = this->taintEngine->isTainted(dst);
+        }
 
         /* Update the symbolic control flow */
         this->controlFlow_s(inst);

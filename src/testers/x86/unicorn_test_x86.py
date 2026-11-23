@@ -846,6 +846,10 @@ CODE  = [
     (None, [REG.X86_64.OF], b"\xc1\xdb\x1f",                  "rcr ebx, 31"),
     (None, [REG.X86_64.OF], b"\xc1\xdb\x20",                  "rcr ebx, 32"),
     (None, [REG.X86_64.OF], b"\xc1\xdb\x21",                  "rcr ebx, 33"),
+    ({"rbx": 0x7fffffff, "eflags": 0x2}, [], b"\xc1\xd3\x21",              "rcl ebx, 33"),
+    ({"rbx": 0x7fffffffffffffff, "eflags": 0x2}, [], b"\x48\xc1\xd3\x41", "rcl rbx, 65"),
+    ({"rbx": 0x80, "eflags": 0x2}, [REG.X86_64.OF], b"\xc0\xcb\x08",    "ror bl, 8"),
+    ({"rbx": 0x8000, "eflags": 0x2}, [REG.X86_64.OF], b"\x66\xc1\xcb\x10", "ror bx, 16"),
     (None, [],              b"\xbb\x00\x00\x00\x80",          "mov ebx, 0x80000000"),
     (None, [],              b"\xd1\xdb",                      "rcr ebx, 1"),
     (None, [],              b"\xbb\x00\x00\x00\x80",          "mov ebx, 0x80000000"),
@@ -2040,6 +2044,12 @@ CODE  = [
     (None, [], b'\x0f(\x0b',                'movaps xmm1, [rbx]'),
     (None, [], b'f\x0fs\xd9\x7f',           'psrldq xmm1, 127'),
 
+    ({"rax": 0x0, "rbx": 0x1},       [], b"\x00\xdc",              "add ah, bl"),
+    ({"rax": 0x0103},                [], b"\xfe\xc4",              "inc ah"),
+    ({"rax": 0x5a01},                [], b"\x30\xe4",              "xor ah, ah"),
+    ({"rax": 0x07, "rbx": 0x0800},   [], b"\x28\xc7",              "sub bh, al"),
+    ({"rax": 0x0103},                [], b"\xd0\xe4",              "shl ah, 1"),
+    ({"rcx": 0x0403},                [], b"\xd0\xed",              "shr ch, 1"),
 ]
 
 

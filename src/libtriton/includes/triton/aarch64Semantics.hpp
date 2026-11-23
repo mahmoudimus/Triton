@@ -107,7 +107,8 @@ namespace triton {
             void nfCcmp_s(triton::arch::Instruction& inst,
                           const triton::engines::symbolic::SharedSymbolicExpression& parent,
                           triton::arch::OperandWrapper& dst,
-                          triton::ast::SharedAbstractNode& nzcv);
+                          triton::ast::SharedAbstractNode& nzcv,
+                          triton::ast::SharedAbstractNode& cond);
 
             //! The ZF semantics.
             void zf_s(triton::arch::Instruction& inst,
@@ -118,7 +119,8 @@ namespace triton {
             void zfCcmp_s(triton::arch::Instruction& inst,
                           const triton::engines::symbolic::SharedSymbolicExpression& parent,
                           triton::arch::OperandWrapper& dst,
-                          triton::ast::SharedAbstractNode& nzcv);
+                          triton::ast::SharedAbstractNode& nzcv,
+                          triton::ast::SharedAbstractNode& cond);
 
             /* Specific flags computation ------------------------------------ */
 
@@ -136,13 +138,23 @@ namespace triton {
                          triton::ast::SharedAbstractNode& op1,
                          triton::ast::SharedAbstractNode& op2);
 
+            //! The CF semantics for the CCMN operation.
+            void cfCcmn_s(triton::arch::Instruction& inst,
+                          const triton::engines::symbolic::SharedSymbolicExpression& parent,
+                          triton::arch::OperandWrapper& dst,
+                          triton::ast::SharedAbstractNode& op1,
+                          triton::ast::SharedAbstractNode& op2,
+                          triton::ast::SharedAbstractNode& nzcv,
+                          triton::ast::SharedAbstractNode& cond);
+
             //! The CF semantics for the CCMP operation.
             void cfCcmp_s(triton::arch::Instruction& inst,
                           const triton::engines::symbolic::SharedSymbolicExpression& parent,
                           triton::arch::OperandWrapper& dst,
                           triton::ast::SharedAbstractNode& op1,
                           triton::ast::SharedAbstractNode& op2,
-                          triton::ast::SharedAbstractNode& nzcv);
+                          triton::ast::SharedAbstractNode& nzcv,
+                          triton::ast::SharedAbstractNode& cond);
 
             //! The VF semantics for the ADDS operation.
             void vfAdd_s(triton::arch::Instruction& inst,
@@ -158,13 +170,23 @@ namespace triton {
                          triton::ast::SharedAbstractNode& op1,
                          triton::ast::SharedAbstractNode& op2);
 
+            //! The VF semantics for the CCMN operation.
+            void vfCcmn_s(triton::arch::Instruction& inst,
+                          const triton::engines::symbolic::SharedSymbolicExpression& parent,
+                          triton::arch::OperandWrapper& dst,
+                          triton::ast::SharedAbstractNode& op1,
+                          triton::ast::SharedAbstractNode& op2,
+                          triton::ast::SharedAbstractNode& nzcv,
+                          triton::ast::SharedAbstractNode& cond);
+
             //! The VF semantics for the CCMP operation.
             void vfCcmp_s(triton::arch::Instruction& inst,
                           const triton::engines::symbolic::SharedSymbolicExpression& parent,
                           triton::arch::OperandWrapper& dst,
                           triton::ast::SharedAbstractNode& op1,
                           triton::ast::SharedAbstractNode& op2,
-                          triton::ast::SharedAbstractNode& nzcv);
+                          triton::ast::SharedAbstractNode& nzcv,
+                          triton::ast::SharedAbstractNode& cond);
 
             /* Instruction semantics ----------------------------------------- */
 
@@ -204,8 +226,32 @@ namespace triton {
             //! The BLR semantics.
             void blr_s(triton::arch::Instruction& inst);
 
+            //! The BLRAA semantics.
+            void blraa_s(triton::arch::Instruction& inst);
+
+            //! The BLRAAZ semantics.
+            void blraaz_s(triton::arch::Instruction& inst);
+
+            //! The BLRAB semantics.
+            void blrab_s(triton::arch::Instruction& inst);
+
+            //! The BLRABZ semantics.
+            void blrabz_s(triton::arch::Instruction& inst);
+
             //! The BR semantics.
             void br_s(triton::arch::Instruction& inst);
+
+            //! The BRAA semantics.
+            void braa_s(triton::arch::Instruction& inst);
+
+            //! The BRAAZ semantics.
+            void braaz_s(triton::arch::Instruction& inst);
+
+            //! The BRAB semantics.
+            void brab_s(triton::arch::Instruction& inst);
+
+            //! The BRABZ semantics.
+            void brabz_s(triton::arch::Instruction& inst);
 
             //! The BRK semantics.
             void brk_s(triton::arch::Instruction& inst);
@@ -216,11 +262,20 @@ namespace triton {
             //! The CBZ semantics
             void cbz_s(triton::arch::Instruction& inst);
 
+            //! The CCMN semantics
+            void ccmn_s(triton::arch::Instruction& inst);
+
             //! The CCMP semantics
             void ccmp_s(triton::arch::Instruction& inst);
 
             //! The CINC semantics
             void cinc_s(triton::arch::Instruction& inst);
+
+            //! The CINV semantics
+            void cinv_s(triton::arch::Instruction& inst);
+
+            //! The CLS semantics
+            void cls_s(triton::arch::Instruction& inst);
 
             //! The CLZ semantics
             void clz_s(triton::arch::Instruction& inst);
@@ -252,6 +307,12 @@ namespace triton {
             //! The CSINV semantics
             void csinv_s(triton::arch::Instruction& inst);
 
+            //! The DMB semantics
+            void dmb_s(triton::arch::Instruction& inst);
+
+            //! The DSB semantics
+            void dsb_s(triton::arch::Instruction& inst);
+
             //! The EON semantics.
             void eon_s(triton::arch::Instruction& inst);
 
@@ -263,6 +324,9 @@ namespace triton {
 
             //! The FMOV semantics.
             void fmov_s(triton::arch::Instruction& inst);
+
+            //! The ISB semantics.
+            void isb_s(triton::arch::Instruction& inst);
 
             //! The LD3 semantics.
             void ld3_s(triton::arch::Instruction& inst);
@@ -441,6 +505,9 @@ namespace triton {
             //! The NEG semantics.
             void neg_s(triton::arch::Instruction& inst);
 
+            //! The NGC semantics.
+            void ngc_s(triton::arch::Instruction& inst);
+
             //! The NOP semantics.
             void nop_s(triton::arch::Instruction& inst);
 
@@ -449,6 +516,18 @@ namespace triton {
 
             //! The ORR semantics.
             void orr_s(triton::arch::Instruction& inst);
+
+            //! The PACIA semantics.
+            void pacia_s(triton::arch::Instruction& inst);
+
+            //! The PACIB semantics.
+            void pacib_s(triton::arch::Instruction& inst);
+
+            //! The PACIZA semantics.
+            void paciza_s(triton::arch::Instruction& inst);
+
+            //! The PACIZB semantics.
+            void pacizb_s(triton::arch::Instruction& inst);
 
             //! The RBIT semantics.
             void rbit_s(triton::arch::Instruction& inst);
@@ -471,6 +550,9 @@ namespace triton {
             //! The SBC semantics.
             void sbc_s(triton::arch::Instruction& inst);
 
+            //! The SBFIZ semantics.
+            void sbfiz_s(triton::arch::Instruction& inst);
+
             //! The SBFX semantics.
             void sbfx_s(triton::arch::Instruction& inst);
 
@@ -479,6 +561,9 @@ namespace triton {
 
             //! The SMADDL semantics.
             void smaddl_s(triton::arch::Instruction& inst);
+
+            //! The SMNEGL semantics.
+            void smnegl_s(triton::arch::Instruction& inst);
 
             //! The SMSUBL semantics.
             void smsubl_s(triton::arch::Instruction& inst);
@@ -617,6 +702,9 @@ namespace triton {
 
             //! The UXTH semantics.
             void uxth_s(triton::arch::Instruction& inst);
+
+            //! The XTN semantics.
+            void xtn_s(triton::arch::Instruction& inst);
         };
 
       /*! @} End of aarch64 namespace */

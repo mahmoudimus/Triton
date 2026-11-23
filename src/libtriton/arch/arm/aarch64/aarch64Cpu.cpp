@@ -404,6 +404,18 @@ namespace triton {
             /* Init the instruction's type */
             inst.setType(this->capstoneInstructionToTritonInstruction(insn[0].id));
 
+            /*
+             * Capstone gives MOVN and MOVZ the MOV id even when it does not print
+             * them as the MOV alias (movn w0, #0xffff or movn x0, #0, lsl #16).
+             * The operands are then the raw imm16 and shift, not the final value.
+             */
+            if (insn[0].id == triton::extlibs::capstone::ARM64_INS_MOV) {
+              if (std::strcmp(insn[0].mnemonic, "movn") == 0)
+                inst.setType(triton::arch::arm::aarch64::ID_INS_MOVN);
+              else if (std::strcmp(insn[0].mnemonic, "movz") == 0)
+                inst.setType(triton::arch::arm::aarch64::ID_INS_MOVZ);
+            }
+
             /* Init the instruction's code codition */
             inst.setCodeCondition(this->capstoneConditionToTritonCondition(detail->arm64.cc));
 
@@ -422,6 +434,15 @@ namespace triton {
               switch(op->type) {
 
                 case triton::extlibs::capstone::ARM64_OP_IMM: {
+                  /*
+                   * A post-index offset is added to the 64-bit base register. The access
+                   * size of a byte load or store is too narrow for it: ldrb w0, [x1], #255
+                   * would get an 8-bit 0xff, which the writeback sign-extends to -1.
+                   */
+                  if (!inst.operands.empty() && inst.operands.back().getType() == triton::arch::OP_MEM) {
+                    size = triton::size::qword;
+                  }
+
                   triton::arch::Immediate imm(op->imm, size ? size : triton::size::qword);
 
                   /*
@@ -543,6 +564,11 @@ namespace triton {
                   imm.setShiftValue(op->shift.value);
 
                   inst.operands.push_back(triton::arch::OperandWrapper(imm));
+                  break;
+                }
+
+                case triton::extlibs::capstone::ARM64_OP_BARRIER: {
+                  /* we do not care about barrier operand */
                   break;
                 }
 
